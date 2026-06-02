@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-primary: #0B2B53;
+  --color-primary-light: #09365F;
+  --color-accent: #0066CC;
+  --color-success: #22C55E;
+  --color-warning: #FF9500;
+  --color-danger: #FF3B30;
+  --color-purple: #9333EA;
+  --color-bg: #F5F7FB;
+  --color-card: #FFFFFF;
+  --color-border: #E5E7EB;
+  --color-text: #1F2937;
+  --color-text-secondary: #6B7280;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+input, textarea, select {
+  border-width: 1px;
+  border-style: solid;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+/* Chrome autofill override rules for dark theme text inputs */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px #0b1a30 inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.light-input:-webkit-autofill,
+.light-input:-webkit-autofill:hover,
+.light-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #171c1f !important;
+  -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+  border-color: #757682 !important;
+}
+
+/* Global Dark Mode Overrides */
+.dark {
+  --color-white: #0B192C; /* Dark card background */
+  --color-bg: #030712;
+  --color-card: #0B192C;
+  --color-border: #1e293b;
+  --color-text: #f8fafc;
+  --color-text-secondary: #94a3b8;
+
+  --color-gray-50: #030712; /* Layout background */
+  --color-gray-100: #111c2e; /* Secondary/hover background */
+  --color-gray-200: #1e293b; /* Borders */
+  --color-gray-300: #334155;
+  --color-gray-400: #64748b;
+  --color-gray-500: #94a3b8;
+  --color-gray-600: #cbd5e1;
+  --color-gray-700: #e2e8f0;
+  --color-gray-800: #f1f5f9;
+  --color-gray-900: #f8fafc;
+
+  --color-slate-50: #030712;
+  --color-slate-100: #111c2e;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #64748b;
+  --color-slate-500: #94a3b8;
+  --color-slate-600: #cbd5e1;
+  --color-slate-700: #e2e8f0;
+  --color-slate-800: #f1f5f9;
+  --color-slate-900: #f8fafc;
+
+  /* Premium Translucent Status Badges for Dark Mode */
+  --color-blue-50: rgba(59, 130, 246, 0.15);
+  --color-blue-200: rgba(59, 130, 246, 0.3);
+  --color-blue-700: #60a5fa;
+
+  --color-orange-50: rgba(249, 115, 22, 0.15);
+  --color-orange-200: rgba(249, 115, 22, 0.3);
+  --color-orange-700: #ff9d43;
+
+  --color-purple-50: rgba(168, 85, 247, 0.15);
+  --color-purple-200: rgba(168, 85, 247, 0.3);
+  --color-purple-700: #c084fc;
+
+  --color-emerald-50: rgba(16, 185, 129, 0.15);
+  --color-emerald-200: rgba(16, 185, 129, 0.3);
+  --color-emerald-700: #34d399;
+
+  --color-rose-50: rgba(244, 63, 94, 0.15);
+  --color-rose-200: rgba(244, 63, 94, 0.3);
+  --color-rose-700: #fb7185;
+
+  --color-amber-50: rgba(245, 158, 11, 0.15);
+  --color-amber-200: rgba(245, 158, 11, 0.3);
+  --color-amber-700: #fbbf24;
+
+  --color-yellow-50: rgba(234, 179, 8, 0.15);
+  --color-yellow-200: rgba(234, 179, 8, 0.3);
+  --color-yellow-700: #fef08a;
+}
+
+
