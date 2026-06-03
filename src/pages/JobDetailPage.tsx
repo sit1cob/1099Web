@@ -138,6 +138,32 @@ const JobDetailPage = () => {
           </div>
         </div>
 
+        {/* SHS Service Guidelines */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4 shadow-sm">
+          <div className="text-center space-y-1">
+            <h2 className="font-bold text-base text-gray-900">SHS Service Guidelines</h2>
+            <p className="text-xs text-gray-400 italic">These are recommended best practices, not requirements.</p>
+          </div>
+          <div className="space-y-3">
+            {[
+              'Introduce yourself as servicing on behalf of Sears Home Services',
+              'Wear shoe covers and lay down a work mat',
+              'Explain diagnosis and repair plan before starting',
+              'Take before/after photos',
+              'Clean work area when finished',
+            ].map((item, idx) => (
+              <div key={idx} className="flex items-start gap-3">
+                <div className="mt-0.5 w-5 h-5 rounded bg-emerald-500 flex items-center justify-center shrink-0">
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-700">{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <button
           onClick={handleClaim}
           disabled={isClaiming}

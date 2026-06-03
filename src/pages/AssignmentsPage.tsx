@@ -1309,24 +1309,24 @@ const AssignmentsPage = () => {
                     </>
                   )}
 
-                  {activeJobDetails._type === 'sears' && ['arrived', 'in_progress'].includes(activeJobDetails.status) && (
-                    <>
-                      <button
-                        onClick={() => setShowApplianceDrawer(true)}
-                        className="flex items-center gap-2 px-4 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
-                      >
-                        <PlayCircle className="h-4 w-4" />
-                        <span>Scan & Edit Appliance</span>
-                      </button>
+                  {activeJobDetails._type === 'sears' && (
+                    <button
+                      onClick={() => setShowApplianceDrawer(true)}
+                      className="flex items-center gap-2 px-4 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
+                    >
+                      <PlayCircle className="h-4 w-4" />
+                      <span>Scan & Edit Appliance</span>
+                    </button>
+                  )}
 
-                      <button
-                        onClick={() => setShowCompleteModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-650 to-indigo-650 hover:from-blue-600 hover:to-indigo-600 border border-blue-500/25 hover:border-blue-400/30 text-gray-900 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-blue-500/10 hover:scale-[1.02] duration-200"
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                        <span>Job Completed</span>
-                      </button>
-                    </>
+                  {activeJobDetails._type === 'sears' && ['arrived', 'in_progress'].includes(activeJobDetails.status) && (
+                    <button
+                      onClick={() => setShowCompleteModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-650 to-indigo-650 hover:from-blue-600 hover:to-indigo-600 border border-blue-500/25 hover:border-blue-400/30 text-gray-900 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-blue-500/10 hover:scale-[1.02] duration-200"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Job Completed</span>
+                    </button>
                   )}
 
                   {activeJobDetails._type === 'sears' && (activeJobDetails.status === 'in_progress' || activeJobDetails.status === 'arrived') && (
@@ -1532,6 +1532,32 @@ const AssignmentsPage = () => {
                     <p className="text-xs text-gray-500 italic">No service history available</p>
                   </div>
 
+                  {/* SHS Service Guidelines */}
+                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6 space-y-4 md:col-span-2">
+                    <div className="text-center space-y-1">
+                      <h4 className="font-bold text-base text-gray-900">SHS Service Guidelines</h4>
+                      <p className="text-xs text-gray-400 italic">These are recommended best practices, not requirements.</p>
+                    </div>
+                    <div className="space-y-3">
+                      {[
+                        'Introduce yourself as servicing on behalf of Sears Home Services',
+                        'Wear shoe covers and lay down a work mat',
+                        'Explain diagnosis and repair plan before starting',
+                        'Take before/after photos',
+                        'Clean work area when finished',
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex items-start gap-3">
+                          <div className="mt-0.5 w-5 h-5 rounded bg-emerald-500 flex items-center justify-center shrink-0">
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <p className="text-sm text-gray-700">{item}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Appliance Specs / Brand / Model information */}
                   <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6 space-y-6 md:col-span-2">
                     <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
@@ -1539,7 +1565,7 @@ const AssignmentsPage = () => {
                         <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
                         <h4 className="font-bold text-[10px] text-blue-400 tracking-[0.2em] uppercase">Appliance Specifications</h4>
                       </div>
-                      {activeJobDetails._type === 'sears' && ['arrived', 'in_progress'].includes(activeJobDetails.status) && (
+                      {activeJobDetails._type === 'sears' && (
                         <button
                           onClick={() => setShowApplianceDrawer(true)}
                           className="text-[11px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1 transition-colors"

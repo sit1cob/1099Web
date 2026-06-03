@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../api/apiService';
@@ -18,10 +18,6 @@ const DashboardPage = () => {
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Quick mini Sasha chat states
-  const [sashaInput, setSashaInput] = useState('');
-  const [sashaResponse, setSashaResponse] = useState<string | null>(null);
-  const [sashaTyping, setSashaTyping] = useState(false);
 
   const loadDashboard = async () => {
     setIsLoading(true);
@@ -51,27 +47,6 @@ const DashboardPage = () => {
   const availableJobs: DashboardAvailableJob[] = dashData?.available_jobs || [];
   const techName = d?.technician_details?.technician_name || vendor?.vendorName || user?.vendorName || user?.username || 'Technician';
 
-  // Mini Sasha AI handler
-  const handleMiniSashaQuery = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!sashaInput.trim()) return;
-    setSashaTyping(true);
-    setSashaResponse(null);
-    const q = sashaInput.toLowerCase();
-    
-    setTimeout(() => {
-      setSashaTyping(false);
-      if (q.includes('schedule') || q.includes('job') || q.includes('today')) {
-        setSashaResponse(`You have ${todaysJobs.length} active service orders scheduled for today. Your first stop is Joe Matteo (SO-13694840) in Hoffman Estates at 8:00 AM.`);
-      } else if (q.includes('part') || q.includes('clutch') || q.includes('oil')) {
-        setSashaResponse(`Clutch Oil (Part #13516) is currently out of stock. If you need it for Speed Queen model VA6013, please order it via the job parts catalog and schedule a rescheduled appointment.`);
-      } else if (q.includes('earnings') || q.includes('payout') || q.includes('make')) {
-        setSashaResponse(`Your estimated earnings for today are $${d?.technician_details?.estimated_earnings_today || 250}. Payouts are transferred every Tuesday.`);
-      } else {
-        setSashaResponse(`I'm on it! Feel free to ask about your route sequence, appliance model diagnostics, or part stock availability.`);
-      }
-    }, 1000);
-  };
 
   if (isLoading) {
     return (
@@ -247,69 +222,7 @@ const DashboardPage = () => {
           {/* Column 3: Sasha mini Chat helper and feedback */}
           <div className="space-y-6">
             
-            {/* Sasha Quick Helper Box */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-5 flex flex-col h-[340px] justify-between shadow-sm">
-              <div>
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2.5 mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md">
-                      <Sparkles className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-900">Sasha Quick Console</h4>
-                      <p className="text-[9px] text-emerald-600 flex items-center gap-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
-                        <span>Active</span>
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <button 
-                    onClick={() => navigate('/chat')}
-                    className="text-[10px] text-blue-600 hover:underline cursor-pointer"
-                  >
-                    Full Chat
-                  </button>
-                </div>
-
-                {/* Sasha conversation bubbles */}
-                <div className="space-y-2 text-xs overflow-y-auto max-h-[190px] pr-1">
-                  <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-600 leading-relaxed">
-                    Hello technician! I'm Sasha, your AI route advisor. Ask me anything about your scheduled jobs or part stock checks.
-                  </div>
-                  
-                  {sashaTyping && (
-                    <div className="flex items-center gap-1.5 py-1 text-gray-400 font-medium italic">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      <span>Sasha is checking stock...</span>
-                    </div>
-                  )}
-
-                  {sashaResponse && (
-                    <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 leading-relaxed animate-fade-in">
-                      {sashaResponse}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Console Input */}
-              <form onSubmit={handleMiniSashaQuery} className="flex gap-1.5 mt-3 shrink-0">
-                <input
-                  type="text"
-                  placeholder="Ask Sasha: check schedule, clutch oil..."
-                  value={sashaInput}
-                  onChange={(e) => setSashaInput(e.target.value)}
-                  className="flex-grow bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2 text-[11px] text-gray-800 outline-none focus:border-blue-500 transition-colors"
-                />
-                <button
-                  type="submit"
-                  className="p-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white transition-colors cursor-pointer"
-                >
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </form>
-            </div>
+            {/* Sasha Quick Console - hidden (not working) */}
 
             {/* Elite Partner Checklist info */}
             <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4 shadow-sm">
