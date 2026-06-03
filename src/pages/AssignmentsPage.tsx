@@ -114,6 +114,7 @@ const AssignmentsPage = () => {
 
   // Modals & Drawers trigger states
   const [showLogNonSears, setShowLogNonSears] = useState(false);
+  const [nonSearsReview, setNonSearsReview] = useState(false);
   const [showArrivedConfirm, setShowArrivedConfirm] = useState(false);
   const [showTrackPartsModal, setShowTrackPartsModal] = useState(false);
   const [showTrackDetailModal, setShowTrackDetailModal] = useState(false);
@@ -129,13 +130,23 @@ const AssignmentsPage = () => {
 
   // Form states
   const [nonSearsForm, setNonSearsForm] = useState({
-    source: 'Angi',
+    source: '',
+    sourceOther: '',
     appliance: '',
     brand: '',
+    jobChannel: '',
+    customerName: '',
+    customerPhone: '',
+    customerAddress: '',
     issue: '',
     notes: '',
-    scheduledDate: '2026-06-02',
-    timeSlot: '12:00 PM - 4:00 PM'
+    scheduledDate: new Date().toISOString().slice(0, 10),
+    startHour: '6',
+    startMinute: '00',
+    startPeriod: 'PM',
+    duration: '1 hour',
+    zipCode: '',
+    clientType: 'Homeowner'
   });
 
   const [applianceForm, setApplianceForm] = useState({
@@ -452,25 +463,45 @@ const AssignmentsPage = () => {
   const handleLogNonSears = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let hour24 = parseInt(nonSearsForm.startHour);
+      if (nonSearsForm.startPeriod === 'PM' && hour24 !== 12) hour24 += 12;
+      if (nonSearsForm.startPeriod === 'AM' && hour24 === 12) hour24 = 0;
       const payload = {
-        scheduledAt: `${nonSearsForm.scheduledDate}T${nonSearsForm.timeSlot.includes('8:00') ? '08:00' : nonSearsForm.timeSlot.includes('12:00') ? '12:00' : '16:00'}:00.000Z`,
-        source: nonSearsForm.source,
+        scheduledAt: `${nonSearsForm.scheduledDate}T${String(hour24).padStart(2, '0')}:${nonSearsForm.startMinute}:00.000Z`,
+        source: nonSearsForm.source === 'Someone Else' ? (nonSearsForm.sourceOther || 'Someone Else') : nonSearsForm.source,
         appliance: nonSearsForm.appliance,
         brand: nonSearsForm.brand,
+        jobChannel: nonSearsForm.jobChannel,
+        customerName: nonSearsForm.customerName,
+        customerPhone: nonSearsForm.customerPhone,
+        customerAddress: nonSearsForm.customerAddress,
         issue: nonSearsForm.issue,
-        notes: nonSearsForm.notes
+        notes: nonSearsForm.notes,
+        duration: nonSearsForm.duration,
+        zipCode: nonSearsForm.zipCode,
+        clientType: nonSearsForm.clientType
       };
       await ApiService.logNonShsJob(payload);
       setShowLogNonSears(false);
       // Reset form
       setNonSearsForm({
-        source: 'Angi',
+        source: '',
+        sourceOther: '',
         appliance: '',
         brand: '',
+        jobChannel: '',
+        customerName: '',
+        customerPhone: '',
+        customerAddress: '',
         issue: '',
         notes: '',
-        scheduledDate: '2026-06-02',
-        timeSlot: '12:00 PM - 4:00 PM'
+        scheduledDate: new Date().toISOString().slice(0, 10),
+        startHour: '6',
+        startMinute: '00',
+        startPeriod: 'PM',
+        duration: '1 hour',
+        zipCode: '',
+        clientType: 'Homeowner'
       });
       loadData();
     } catch (e) {
@@ -1697,52 +1728,181 @@ const AssignmentsPage = () => {
       {/* 1. Log Non-Sears Job Dialog Modal */}
       {showLogNonSears && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md shadow-2xl p-6 text-gray-700">
-            <div className="flex items-center justify-between mb-4 border-b border-gray-200 pb-3">
-              <h3 className="text-lg font-bold text-gray-900">Log Non-Sears Job</h3>
-              <button onClick={() => setShowLogNonSears(false)} className="text-gray-500 hover:text-gray-900 cursor-pointer"><X className="h-5 w-5" /></button>
+          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg shadow-2xl text-gray-700 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 pt-6 pb-3 border-b border-gray-200 shrink-0">
+              <h3 className="text-lg font-bold text-gray-900">{nonSearsReview ? 'Looks good?' : 'Log Non-Sears Job'}</h3>
+              <button onClick={() => { setShowLogNonSears(false); setNonSearsReview(false); }} className="text-gray-500 hover:text-gray-900 cursor-pointer"><X className="h-5 w-5" /></button>
             </div>
-            
-            <form onSubmit={handleLogNonSears} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Source Channel</label>
-                  <select
-                    value={nonSearsForm.source}
-                    onChange={(e) => setNonSearsForm({ ...nonSearsForm, source: e.target.value })}
-                    className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500"
-                  >
-                    <option value="Angi">Angi Lead</option>
-                    <option value="HomeAdvisor">HomeAdvisor</option>
-                    <option value="Direct Call">Direct Client</option>
-                    <option value="Thumbtack">Thumbtack</option>
-                  </select>
+
+            {nonSearsReview ? (
+              <div className="flex-grow overflow-y-auto px-6 py-4">
+                <p className="text-xs text-gray-500 mb-4">Confirm the details below to log this job</p>
+                <div className="border border-gray-200 rounded-xl divide-y divide-gray-100">
+                  {[
+                    { label: 'Date', value: nonSearsForm.scheduledDate === new Date().toISOString().slice(0, 10) ? 'Today' : nonSearsForm.scheduledDate },
+                    { label: 'Source', value: nonSearsForm.source === 'Someone Else' ? (nonSearsForm.sourceOther || 'Someone Else') : nonSearsForm.source },
+                    { label: 'Appliance', value: nonSearsForm.appliance },
+                    { label: 'Brand', value: nonSearsForm.brand || '—' },
+                    { label: 'Issue', value: nonSearsForm.issue || '—' },
+                    { label: 'Time', value: `${nonSearsForm.startHour}:${nonSearsForm.startMinute} ${nonSearsForm.startPeriod} · ${nonSearsForm.duration}` },
+                    { label: 'Zip', value: nonSearsForm.zipCode || '—' },
+                    { label: 'Client', value: nonSearsForm.clientType },
+                    { label: 'Channel', value: nonSearsForm.jobChannel || '—' },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-center justify-between px-4 py-3">
+                      <span className="text-xs text-gray-500">{row.label}</span>
+                      <span className="text-xs font-bold text-gray-900">{row.value}</span>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Appliance Category</label>
+                <div className="mt-4 px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    No conflicts with your SHS schedule
+                  </p>
+                </div>
+                <div className="flex items-center justify-end gap-3 pt-5">
+                  <button
+                    type="button"
+                    onClick={() => setNonSearsReview(false)}
+                    className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { handleLogNonSears(e as any); setNonSearsReview(false); }}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                  >
+                    Add to Schedule
+                  </button>
+                </div>
+              </div>
+            ) : (
+            
+            <form onSubmit={(e) => { e.preventDefault(); setNonSearsReview(true); }} className="flex-grow overflow-y-auto px-6 py-4 space-y-5">
+
+              {/* Source - Where's this job from? */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">{`Where's this job from?`}</label>
+                <select
+                  required
+                  value={nonSearsForm.source}
+                  onChange={(e) => setNonSearsForm({ ...nonSearsForm, source: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
+                >
+                  <option value="">Select source...</option>
+                  <option value="Frontdoor / AHS">Frontdoor / AHS</option>
+                  <option value="HomeAdvisor / Angi">HomeAdvisor / Angi</option>
+                  <option value="Neighborly">Neighborly</option>
+                  <option value="Home Warranty Company">Home Warranty Company</option>
+                  <option value="Direct / Repeat Customer">Direct / Repeat Customer</option>
+                  <option value="Someone Else">Someone Else</option>
+                </select>
+                {nonSearsForm.source === 'Someone Else' && (
                   <input
                     type="text"
                     required
-                    placeholder="Dryer, Washer, etc."
-                    value={nonSearsForm.appliance}
-                    onChange={(e) => setNonSearsForm({ ...nonSearsForm, appliance: e.target.value })}
-                    className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500"
+                    placeholder="Enter source name or details..."
+                    value={nonSearsForm.sourceOther}
+                    onChange={(e) => setNonSearsForm({ ...nonSearsForm, sourceOther: e.target.value })}
+                    className="mt-2 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
                   />
+                )}
+              </div>
+
+              {/* Appliance Category - What appliance? */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">What appliance?</label>
+                <select
+                  required
+                  value={nonSearsForm.appliance}
+                  onChange={(e) => setNonSearsForm({ ...nonSearsForm, appliance: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
+                >
+                  <option value="">Select appliance...</option>
+                  <option value="Refrigerator">Refrigerator</option>
+                  <option value="Washer">Washer</option>
+                  <option value="Dryer">Dryer</option>
+                  <option value="Dishwasher">Dishwasher</option>
+                  <option value="Range / Oven">Range / Oven</option>
+                  <option value="HVAC">HVAC</option>
+                  <option value="Water Heater">Water Heater</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Brand - Which brand? */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Which brand?</label>
+                <select
+                  value={nonSearsForm.brand}
+                  onChange={(e) => setNonSearsForm({ ...nonSearsForm, brand: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
+                >
+                  <option value="">Select brand...</option>
+                  <option value="Kenmore">Kenmore</option>
+                  <option value="Samsung">Samsung</option>
+                  <option value="LG">LG</option>
+                  <option value="Whirlpool">Whirlpool</option>
+                  <option value="GE">GE</option>
+                  <option value="Maytag">Maytag</option>
+                  <option value="KitchenAid">KitchenAid</option>
+                  <option value="Bosch">Bosch</option>
+                  <option value="Frigidaire">Frigidaire</option>
+                  <option value="Amana">Amana</option>
+                  <option value="Electrolux">Electrolux</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* How did this job come in? */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">How did this job come in?</label>
+                <select
+                  value={nonSearsForm.jobChannel}
+                  onChange={(e) => setNonSearsForm({ ...nonSearsForm, jobChannel: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
+                >
+                  <option value="">Select channel...</option>
+                  <option value="App dispatch">App dispatch</option>
+                  <option value="Phone call">Phone call</option>
+                  <option value="Referral">Referral</option>
+                </select>
+              </div>
+
+              {/* Customer Info */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Customer Information</label>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Customer Name"
+                    value={nonSearsForm.customerName}
+                    onChange={(e) => setNonSearsForm({ ...nonSearsForm, customerName: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="tel"
+                      placeholder="Phone Number"
+                      value={nonSearsForm.customerPhone}
+                      onChange={(e) => setNonSearsForm({ ...nonSearsForm, customerPhone: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Service Address"
+                      value={nonSearsForm.customerAddress}
+                      onChange={(e) => setNonSearsForm({ ...nonSearsForm, customerAddress: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 
+              {/* Schedule */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Manufacturer Brand</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. LG, Whirlpool"
-                    value={nonSearsForm.brand}
-                    onChange={(e) => setNonSearsForm({ ...nonSearsForm, brand: e.target.value })}
-                    className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Scheduled Date</label>
                   <input
@@ -1750,36 +1910,110 @@ const AssignmentsPage = () => {
                     required
                     value={nonSearsForm.scheduledDate}
                     onChange={(e) => setNonSearsForm({ ...nonSearsForm, scheduledDate: e.target.value })}
-                    className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500"
+                    className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Start Time</label>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={nonSearsForm.startHour}
+                      onChange={(e) => setNonSearsForm({ ...nonSearsForm, startHour: e.target.value })}
+                      className="w-12 bg-gray-50 border border-gray-200 rounded-lg px-2 py-2.5 text-xs text-gray-900 text-center outline-none focus:border-blue-500 transition-colors"
+                    />
+                    <span className="text-xs font-bold text-gray-500">:</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      step={5}
+                      value={nonSearsForm.startMinute}
+                      onChange={(e) => setNonSearsForm({ ...nonSearsForm, startMinute: e.target.value.padStart(2, '0') })}
+                      className="w-12 bg-gray-50 border border-gray-200 rounded-lg px-2 py-2.5 text-xs text-gray-900 text-center outline-none focus:border-blue-500 transition-colors"
+                    />
+                    <div className="flex rounded-lg overflow-hidden border border-gray-200 ml-1">
+                      <button
+                        type="button"
+                        onClick={() => setNonSearsForm({ ...nonSearsForm, startPeriod: 'AM' })}
+                        className={`px-2.5 py-2 text-xs font-bold transition-colors ${nonSearsForm.startPeriod === 'AM' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                      >
+                        AM
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNonSearsForm({ ...nonSearsForm, startPeriod: 'PM' })}
+                        className={`px-2.5 py-2 text-xs font-bold transition-colors ${nonSearsForm.startPeriod === 'PM' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                      >
+                        PM
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Duration & Zip Code */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Duration</label>
+                  <select
+                    value={nonSearsForm.duration}
+                    onChange={(e) => setNonSearsForm({ ...nonSearsForm, duration: e.target.value })}
+                    className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
+                  >
+                    <option value="30 minutes">30 minutes</option>
+                    <option value="1 hour">1 hour</option>
+                    <option value="1.5 hours">1.5 hours</option>
+                    <option value="2 hours">2 hours</option>
+                    <option value="2.5 hours">2.5 hours</option>
+                    <option value="3 hours">3 hours</option>
+                    <option value="4 hours">4 hours</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Zip Code</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 60193"
+                    value={nonSearsForm.zipCode}
+                    onChange={(e) => setNonSearsForm({ ...nonSearsForm, zipCode: e.target.value })}
+                    className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
                   />
                 </div>
               </div>
 
+              {/* Client Type */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Time Appointment Window</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Client Type</label>
                 <select
-                  value={nonSearsForm.timeSlot}
-                  onChange={(e) => setNonSearsForm({ ...nonSearsForm, timeSlot: e.target.value })}
-                  className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500"
+                  value={nonSearsForm.clientType}
+                  onChange={(e) => setNonSearsForm({ ...nonSearsForm, clientType: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 transition-colors"
                 >
-                  <option value="8:00 AM - 12:00 PM">8:00 AM - 12:00 PM</option>
-                  <option value="12:00 PM - 4:00 PM">12:00 PM - 4:00 PM</option>
-                  <option value="4:00 PM - 8:00 PM">4:00 PM - 8:00 PM</option>
+                  <option value="Homeowner">Homeowner</option>
+                  <option value="Property Manager">Property Manager</option>
+                  <option value="Home Warranty">Home Warranty</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
 
+              {/* Issue Description */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Client Issue Description</label>
-                <input
-                  type="text"
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">What was the issue?</label>
+                <p className="text-[10px] text-gray-400 mt-0.5 mb-1.5">Short description — e.g. &quot;Not cooling&quot; or &quot;Won&apos;t drain&quot;</p>
+                <textarea
+                  rows={2}
                   required
-                  placeholder="e.g. Squeaking drum noise on cycle"
+                  placeholder={"e.g. Not cooling, Won\u0027t start..."}
                   value={nonSearsForm.issue}
                   onChange={(e) => setNonSearsForm({ ...nonSearsForm, issue: e.target.value })}
-                  className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 resize-none transition-colors"
                 />
               </div>
 
+              {/* Additional Notes */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Additional Private Notes</label>
                 <textarea
@@ -1787,26 +2021,29 @@ const AssignmentsPage = () => {
                   placeholder="Customer requested a phone confirmation call 15 mins prior..."
                   value={nonSearsForm.notes}
                   onChange={(e) => setNonSearsForm({ ...nonSearsForm, notes: e.target.value })}
-                  className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500 resize-none"
+                  className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-900 outline-none focus:border-blue-500 resize-none transition-colors"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-200 mt-5">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setShowLogNonSears(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                  disabled={!nonSearsForm.source || !nonSearsForm.appliance}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Log External Job
                 </button>
               </div>
             </form>
+            )
+            }
           </div>
         </div>
       )}

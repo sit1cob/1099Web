@@ -424,7 +424,7 @@ class ApiService {
     }
   }
 
-  async logNonShsJob(payload: { scheduledAt: string; source: string; appliance: string; brand: string; issue: string; notes: string }): Promise<any> {
+  async logNonShsJob(payload: { scheduledAt: string; source: string; appliance: string; brand: string; jobChannel?: string; customerName?: string; customerPhone?: string; customerAddress?: string; issue: string; notes: string; duration?: string; zipCode?: string; clientType?: string }): Promise<any> {
     try {
       const response = await this.v2Api.post('/api/vendors/me/non-shs-jobs', payload);
       return response.data;
