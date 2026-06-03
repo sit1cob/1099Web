@@ -155,7 +155,16 @@ class ApiService {
   async getVendorProfile(): Promise<VendorProfileResponse> {
     try {
       const response = await this.api.get<VendorProfileResponse>('/api/vendors/me');
-      return response.data;
+      const raw = response.data?.data || response.data;
+      // Map real API field names to what the UI expects
+      const mapped: any = {
+        ...raw,
+        vendorName: (raw as any)?.vendorName || (raw as any)?.name || null,
+        mobile: (raw as any)?.mobile || (raw as any)?.phone || null,
+        email: (raw as any)?.email || null,
+        countryCode: (raw as any)?.countryCode || 'US',
+      };
+      return { success: true, data: mapped };
     } catch (error) {
       console.warn('getVendorProfile API failed, falling back to mock.');
       return {
