@@ -609,7 +609,7 @@ class ApiService {
   // ── Parts ──
   async addPart(assignmentId: string, request: AddPartToAssignmentRequest): Promise<PartResponse> {
     try {
-      const response = await this.api.post<PartResponse>(`/api/assignments/${assignmentId}/parts`, request);
+      const response = await this.v2Api.post<PartResponse>(`/api/assignments/${assignmentId}/parts`, request);
       return response.data;
     } catch (error) {
       console.warn('addPart failed, adding mock part.');
@@ -641,10 +641,9 @@ class ApiService {
 
   async getAssignmentParts(assignmentId: string): Promise<AddedPartResponse> {
     try {
-      const token = this.getToken();
-      const response = await axios.get(
-        `https://pros.shs.com/api/assignments/${assignmentId}/orders/tracking/part-order-details`,
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' } }
+      const response = await this.v2Api.get(
+        `/api/assignments/${assignmentId}/orders/tracking/part-order-details`,
+        { timeout: 5000 }
       );
       const payload = response.data || {};
       const data = payload.data || {};
@@ -692,7 +691,11 @@ class ApiService {
         });
       });
 
-      return { success: true, data: combinedItems, message: payload.message || 'Part order details retrieved' };
+      // Also merge any locally-added mock parts (from addPart fallback)
+      const allMockParts = mockDb.getParts();
+      const localParts = allMockParts.filter(p => p.orderId.includes(assignmentId) || p.id.includes(assignmentId));
+      const merged = [...combinedItems, ...localParts];
+      return { success: true, data: merged, message: payload.message || 'Part order details retrieved' };
     } catch (error) {
       console.warn('getAssignmentParts failed, getting mock parts for SO.');
       const allParts = mockDb.getParts();

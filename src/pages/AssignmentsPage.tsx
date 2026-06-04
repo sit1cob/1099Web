@@ -451,7 +451,7 @@ const AssignmentsPage = () => {
   }, [assignments]);
 
   const statusCount = (status: string) => {
-    if (status === 'All') return activeAssignments.length + availableJobs.length + nonShsJobs.length;
+    if (status === 'All') return assignments.length + availableJobs.length;
     if (status === 'Assigned') return activeAssignments.filter(a => (a.status || '').toLowerCase() === 'assigned').length;
     if (status === 'In Progress') return activeAssignments.filter(a => ['arrived', 'in_progress', 'part_order', 'rescheduled'].includes((a.status || '').toLowerCase())).length;
     if (status === 'Available') return availableJobs.length;
@@ -1255,7 +1255,7 @@ const AssignmentsPage = () => {
             <div className="flex-grow flex flex-col overflow-hidden">
               
               {/* Detail Header Toolbar */}
-              <div className="p-6 border-b border-gray-200/80 bg-white shrink-0 flex flex-wrap items-center justify-between gap-4">
+              <div className="p-6 border-b border-gray-200/80 bg-white shrink-0 space-y-4">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/25 flex items-center justify-center text-blue-400 shrink-0 shadow-lg shadow-blue-500/10">
                     {(activeJobDetails.job?.applianceType || '').toLowerCase().includes('refriger') ? (
@@ -1289,8 +1289,8 @@ const AssignmentsPage = () => {
                   </div>
                 </div>
 
-                {/* Main workflow progression action triggers */}
-                <div className="flex items-center gap-2">
+                {/* Main workflow progression action triggers - below status */}
+                <div className="flex flex-wrap items-center gap-2">
                   
                   {activeJobDetails._type === 'available' && (
                     <button
@@ -1347,16 +1347,6 @@ const AssignmentsPage = () => {
                     >
                       <PlayCircle className="h-4 w-4" />
                       <span>Scan & Edit Appliance</span>
-                    </button>
-                  )}
-
-                  {activeJobDetails._type === 'sears' && ['arrived', 'in_progress'].includes(activeJobDetails.status) && (
-                    <button
-                      onClick={() => setShowCompleteModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-650 to-indigo-650 hover:from-blue-600 hover:to-indigo-600 border border-blue-500/25 hover:border-blue-400/30 text-gray-900 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-blue-500/10 hover:scale-[1.02] duration-200"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      <span>Job Completed</span>
                     </button>
                   )}
 
@@ -3146,12 +3136,14 @@ const PartsListSection = ({
   const loadParts = async () => {
     setLoading(true);
     try {
+      console.log('[PartsListSection] Loading parts for jobId:', jobId);
       const res = await ApiService.getAssignmentParts(jobId);
+      console.log('[PartsListSection] Parts response:', res.data?.length, 'items');
       if (res.success) {
         setParts(res.data || []);
       }
     } catch (e) {
-      console.error(e);
+      console.error('[PartsListSection] Error loading parts:', e);
     } finally {
       setLoading(false);
     }

@@ -324,12 +324,15 @@ const Layout = () => {
 
       {/* Main Panel */}
       <main className="flex-grow flex flex-col overflow-hidden bg-gray-50 relative">
-        <div className={isActiveRoute('/chat') ? 'flex-grow flex flex-col h-full w-full' : 'hidden'}>
-          <SashaChatPage active={isActiveRoute('/chat')} />
-        </div>
-        <div className={isActiveRoute('/chat') ? 'hidden' : 'flex-grow flex flex-col h-full overflow-hidden'}>
-          <Outlet />
-        </div>
+        {isActiveRoute('/chat') ? (
+          <div className="flex-grow flex flex-col h-full w-full">
+            <SashaChatPage active={true} />
+          </div>
+        ) : (
+          <div className="flex-grow flex flex-col h-full overflow-hidden">
+            <Outlet />
+          </div>
+        )}
       </main>
     </div>
   );
