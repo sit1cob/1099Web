@@ -294,8 +294,19 @@ class ApiService {
   // ── Jobs ──
   async getAvailableJobs(): Promise<AvailableJobsResponse> {
     try {
-      const response = await this.v2Api.get<AvailableJobsResponse>('/api/jobs/available');
-      return response.data;
+      const response = await this.v2Api.get<any>('/api/jobs/available');
+      const raw = response.data;
+      // Map API fields to ServiceOrder interface
+      if (raw.success && Array.isArray(raw.data)) {
+        raw.data = raw.data.map((j: any) => ({
+          ...j,
+          appliance: j.appliance || j.applianceType || 'Service',
+          brand: j.brand || j.manufacturerBrand || '',
+          city: j.city || j.customerCity || '',
+          address: j.address || j.customerAddress || '',
+        }));
+      }
+      return raw;
     } catch (error) {
       console.warn('getAvailableJobs failed, using mock fallback.');
       return {
@@ -597,7 +608,7 @@ class ApiService {
   // ── Appliance ──
   async updateApplianceInfo(assignmentId: string, body: { applianceBrandname: string; applianceModel: string; applianceSerial: string; applianceIssue: string; status?: string }): Promise<any> {
     try {
-      const response = await this.api.patch(`/api/v3/assignments/${assignmentId}`, body);
+      const response = await this.v2Api.patch(`/api/assignments/${assignmentId}`, body);
       return { success: true, data: response.data };
     } catch (error) {
       console.warn('updateApplianceInfo failed, updating mockDb.');

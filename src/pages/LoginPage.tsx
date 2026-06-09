@@ -86,7 +86,7 @@ const LoginPage = () => {
         {/* Branding */}
         <p className="text-blue-200/80 text-[16px] font-semibold tracking-wider mb-1.5">Sears KAIros</p>
         <h1 className="text-white text-[52px] leading-[56px] font-black tracking-tight mb-2.5">
-          Sasha<span className="text-[#fdc425]">1099</span>
+          Sasha <span className="text-[#fdc425]">1099</span>
         </h1>
         <p className="text-blue-300/50 text-[12px] font-extrabold uppercase tracking-[0.3em] mb-10">
           SEARS HOME SERVICES

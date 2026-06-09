@@ -546,6 +546,23 @@ const AssignmentsPage = () => {
         applianceIssue: applianceForm.issue,
         status: 'in_progress'
       });
+      // Update local state immediately so UI reflects changes
+      setAssignments(prev => prev.map(a => {
+        if (String(a.id) === String(selectedId)) {
+          return {
+            ...a,
+            status: 'in_progress',
+            job: {
+              ...a.job,
+              manufacturerBrand: applianceForm.brand,
+              applianceModel: applianceForm.model,
+              applianceSerial: applianceForm.serial,
+              serviceDescription: applianceForm.issue,
+            }
+          };
+        }
+        return a;
+      }));
       setShowApplianceDrawer(false);
       loadData();
     } catch (e) {
