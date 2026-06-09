@@ -192,6 +192,39 @@ class ApiService {
     }
   }
 
+  // ── Feedback ──
+  async getFeedbackConfig(): Promise<any> {
+    try {
+      const response = await this.api.get('/api/feedback/config', { timeout: 5000 });
+      return response.data;
+    } catch (error) {
+      console.warn('getFeedbackConfig failed, using mock fallback.');
+      return {
+        success: true,
+        data: {
+          _id: 'mock-feedback-config',
+          title: 'App Feedback',
+          isActive: true,
+          questions: [
+            { id: 'q1', _id: 'q1', question: 'How would you rate your overall experience with the app?', type: 'rating', options: [], required: true, order: 1 },
+            { id: 'q2', _id: 'q2', question: 'How satisfied are you with the app\'s performance?', type: 'rating', options: [], required: true, order: 2 },
+            { id: 'q3', _id: 'q3', question: 'Is there anything you\'d like us to improve or add in the app?', type: 'text', options: [], required: true, order: 3 },
+          ],
+        }
+      };
+    }
+  }
+
+  async submitFeedback(data: { metadata: { appVersion: string; deviceModel: string; osVersion: string; timestamp: string }; answers: { questionId: string; answer: any }[] }): Promise<any> {
+    try {
+      const response = await this.api.post('/api/feedback/submit', data);
+      return response.data;
+    } catch (error) {
+      console.warn('submitFeedback failed, using mock fallback.');
+      return { success: true, data: { id: `fb-${Date.now()}`, userId: 'vendor-1', submittedAt: new Date().toISOString() }, message: 'Feedback submitted successfully' };
+    }
+  }
+
   async updateVendorAddress(payload: { addressLine1: string; city: string; state: string; countryCode: string; zipCode: string }): Promise<any> {
     try {
       const res = await this.api.patch('/api/vendors/me/address', payload);

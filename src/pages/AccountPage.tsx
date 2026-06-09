@@ -4,7 +4,7 @@ import ApiService from '../api/apiService';
 import { 
   User, Settings, Award, Star, MapPin, Mail, Phone, 
   ShieldCheck, Edit2, Check, Percent, Clock, ThumbsUp, 
-  AlertCircle, ChevronRight, ArrowRight, Loader2 
+  AlertCircle, ChevronRight, ArrowRight, Loader2, MessageCircle, X 
 } from 'lucide-react';
 
 interface AddressPayload {
@@ -22,6 +22,13 @@ const AccountPage = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Feedback states
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackConfig, setFeedbackConfig] = useState<any>(null);
+  const [feedbackAnswers, setFeedbackAnswers] = useState<Record<string, any>>({});
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+
   // Profile edit states
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressForm, setAddressForm] = useState<AddressPayload>({
@@ -39,6 +46,9 @@ const AccountPage = () => {
     const tabParam = params.get('tab');
     if (tabParam === 'performance' || tabParam === 'reviews' || tabParam === 'profile') {
       setActiveTab(tabParam as any);
+    }
+    if (params.get('feedback') === 'open') {
+      openFeedbackModal();
     }
   }, [window.location.search]);
 
@@ -92,6 +102,59 @@ const AccountPage = () => {
       alert('Error updating address');
     } finally {
       setSavingAddress(false);
+    }
+  };
+
+  const openFeedbackModal = async () => {
+    setShowFeedbackModal(true);
+    setFeedbackAnswers({});
+    if (!feedbackConfig) {
+      setFeedbackLoading(true);
+      try {
+        const res = await ApiService.getFeedbackConfig();
+        if (res.success) {
+          setFeedbackConfig(res.data);
+        }
+      } catch (e) {
+        console.error('Failed to load feedback config', e);
+      } finally {
+        setFeedbackLoading(false);
+      }
+    }
+  };
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackConfig) return;
+    // Validate required
+    for (const q of feedbackConfig.questions) {
+      if (q.required && (!feedbackAnswers[q.id] || feedbackAnswers[q.id] === '')) {
+        alert(`Please answer: ${q.question}`);
+        return;
+      }
+    }
+    setFeedbackSubmitting(true);
+    try {
+      const answers = Object.keys(feedbackAnswers).map(key => ({ questionId: key, answer: feedbackAnswers[key] }));
+      const res = await ApiService.submitFeedback({
+        metadata: {
+          appVersion: '2.0.4',
+          deviceModel: navigator.userAgent.slice(0, 50),
+          osVersion: navigator.platform,
+          timestamp: new Date().toISOString(),
+        },
+        answers,
+      });
+      if (res.success) {
+        alert('Thank you for your feedback!');
+        setShowFeedbackModal(false);
+      } else {
+        alert(res.message || 'Failed to submit feedback');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error submitting feedback');
+    } finally {
+      setFeedbackSubmitting(false);
     }
   };
 
@@ -593,6 +656,7 @@ const AccountPage = () => {
                 )}
               </div>
 
+
             </div>
           )}
 
@@ -682,6 +746,90 @@ const AccountPage = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-700 p-6 text-center relative shrink-0">
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                className="absolute right-4 top-4 text-white/60 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <h3 className="text-xl font-extrabold text-white">Sasha 1099</h3>
+              <p className="text-blue-200 text-xs mt-1">Sears Home Services Partner</p>
+            </div>
+
+            {/* Questions */}
+            <div className="flex-grow overflow-y-auto p-6 space-y-5">
+              {feedbackLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                </div>
+              ) : feedbackConfig?.questions?.map((q: any) => (
+                <div key={q.id} className="bg-gray-50 border border-gray-200 rounded-xl p-5 space-y-3">
+                  <p className="text-sm font-bold text-gray-900">
+                    {q.question} {q.required && <span className="text-red-500">*</span>}
+                  </p>
+                  
+                  {q.type === 'rating' ? (
+                    <div className="flex items-center justify-center gap-2 py-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setFeedbackAnswers(prev => ({ ...prev, [q.id]: star }))}
+                          className="cursor-pointer transition-transform hover:scale-110"
+                        >
+                          <Star
+                            className={`h-8 w-8 transition-colors ${
+                              star <= (feedbackAnswers[q.id] || 0)
+                                ? 'fill-yellow-400 text-yellow-400'
+                                : 'text-gray-300'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <textarea
+                      placeholder="Type your feedback here..."
+                      value={feedbackAnswers[q.id] || ''}
+                      onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                      rows={4}
+                      className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500 resize-none placeholder:text-gray-400"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="border-t border-gray-200 p-4 flex items-center gap-3 shrink-0 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setShowFeedbackModal(false)}
+                disabled={feedbackSubmitting}
+                className="flex-1 py-3 px-4 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-bold rounded-xl text-sm transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleFeedbackSubmit}
+                disabled={feedbackSubmitting}
+                className="flex-1 py-3 px-4 bg-blue-700 hover:bg-blue-600 text-white font-bold rounded-xl text-sm transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {feedbackSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                <span>Submit</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

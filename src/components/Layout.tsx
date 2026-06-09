@@ -6,7 +6,7 @@ import SashaChatPage from '../pages/SashaChatPage';
 import {
   LayoutDashboard, ClipboardList, Wrench, DollarSign, LogOut,
   Shield, Search, MessageSquare, ChevronDown, ChevronRight, Award,
-  User, Settings, Star, TrendingUp, Calendar, List, History, Sun, Moon
+  User, Settings, Star, TrendingUp, Calendar, List, History, Sun, Moon, MessageCircle
 } from 'lucide-react';
 
 const Layout = () => {
@@ -272,6 +272,13 @@ const Layout = () => {
                 >
                   <Star className="h-4 w-4" />
                   <span>Customer Reviews</span>
+                </button>
+                <button
+                  onClick={() => navigate('/account?tab=reviews&feedback=open')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all text-slate-400 hover:text-white hover:bg-white/5`}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Feedback</span>
                 </button>
               </div>
             )}
