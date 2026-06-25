@@ -9,6 +9,7 @@ import { RescheduleRequest, RescheduleResponse } from '../types/reschedule.types
 import { VendorProfileResponse } from '../types/vendor.types';
 import { API_CONFIG, V2_API_CONFIG } from '../utils/config';
 import { mockDb } from './mockData';
+import { trackApiError } from '../utils/clarityTracking';
 
 const TOKEN_ERROR_PATTERNS = [
   'invalid token', 'expired token', 'token expired', 'jwt expired',
@@ -84,7 +85,21 @@ class ApiService {
       },
       (error) => {
         const status = error?.response?.status;
-        const isLoginEndpoint = error?.config?.url?.includes('/api/auth/login');
+        const url = error?.config?.url || '';
+        const method = error?.config?.method || 'GET';
+        const isLoginEndpoint = url.includes('/api/auth/login');
+
+        // Track every API error in Clarity
+        trackApiError({
+          method,
+          url,
+          status,
+          statusText: error?.response?.statusText,
+          errorMessage: error?.message,
+          errorCode: error?.code,
+          responseData: error?.response?.data,
+        });
+
         if ((status === 401 || status === 403 || isTokenError(error?.response?.data)) && !isLoginEndpoint) {
           forceLogout();
         }
@@ -103,11 +118,19 @@ class ApiService {
       const mockUser = {
         id: 'vendor-1',
         username: request.username || 'sasha_1099',
+        name: request.username || 'test_vendor',
         vendorName: 'Sasha Tech Solutions',
         email: 'sasha.tech@searskairos.ai',
+        phone: '555-123-6789',
         mobile: '555-019-2834',
         role: 'registered_user',
-        tier: 'ELITE'
+        tier: 'ELITE',
+        isActive: true,
+        zipCodes: ['60179'],
+        addressLine1: '5407 Trillium Blvd',
+        city: 'Hoffman Estate',
+        state: 'IL',
+        zipCode: '60192'
       };
       const responseData: LoginResponse = {
         success: true,
@@ -131,7 +154,13 @@ class ApiService {
     const user = response.data?.user || response.user;
     if (accessToken) localStorage.setItem('accessToken', accessToken);
     if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-    if (user) localStorage.setItem('user', JSON.stringify(user));
+    if (user) {
+      // Merge top-level response.data fields into user so address/phone/etc. are persisted
+      const fullUser = { ...(response.data || {}), ...user };
+      delete fullUser.accessToken;
+      delete fullUser.refreshToken;
+      localStorage.setItem('user', JSON.stringify(fullUser));
+    }
   }
 
   logout(): void {
@@ -156,24 +185,27 @@ class ApiService {
     try {
       const response = await this.api.get<VendorProfileResponse>('/api/vendors/me');
       const raw = response.data?.data || response.data;
+      console.log('[getVendorProfile] Raw API response:', JSON.stringify(raw));
       // Map real API field names to what the UI expects
+      const storedUser = this.getUser();
       const mapped: any = {
         ...raw,
-        vendorName: (raw as any)?.vendorName || (raw as any)?.name || null,
-        mobile: (raw as any)?.mobile || (raw as any)?.phone || null,
-        email: (raw as any)?.email || null,
+        vendorName: (raw as any)?.vendorName || (raw as any)?.name || storedUser?.vendorName || null,
+        mobile: (raw as any)?.mobile || (raw as any)?.phone || (raw as any)?.contactNumber || null,
+        email: (raw as any)?.email || (raw as any)?.emailAddress || (raw as any)?.contactEmail || storedUser?.email || null,
         countryCode: (raw as any)?.countryCode || 'US',
       };
       return { success: true, data: mapped };
     } catch (error) {
       console.warn('getVendorProfile API failed, falling back to mock.');
+      const storedUser = this.getUser();
       return {
         success: true,
         data: {
-          id: 'vendor-1',
-          vendorName: 'Sasha Tech Solutions',
-          email: 'sasha.tech@searskairos.ai',
-          mobile: '555-019-2834',
+          id: storedUser?.id || 'vendor-1',
+          vendorName: storedUser?.vendorName || 'Sasha Tech Solutions',
+          email: storedUser?.email || '',
+          mobile: storedUser?.mobile || '555-019-2834',
           tier: 'ELITE',
           addressLine1: '3333 Beverly Rd',
           city: 'Hoffman Estates',

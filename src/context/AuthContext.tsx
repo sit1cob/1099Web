@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ApiService, { setLogoutCallback } from '../api/apiService';
+import { trackLogin, trackLogout, identifySession } from '../utils/clarityTracking';
 import { UserDto } from '../types/auth.types';
 
 interface AuthContextType {
@@ -25,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
 
   const logout = useCallback(() => {
+    trackLogout();
     ApiService.logout();
     setUser(null);
     navigate('/login');
@@ -36,6 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = ApiService.getToken();
     if (stored && token) {
       setUser(stored);
+      // Re-identify returning user in Clarity on page reload
+      identifySession();
     }
     setIsLoading(false);
   }, [logout]);
@@ -52,6 +56,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ApiService.saveAuthData(response);
       const u = response.data?.user || response.user || null;
       setUser(u);
+      // Merge top-level response data with user object so all fields are tracked
+      const fullUserData = { ...(response.data || {}), ...u };
+      trackLogin(username.trim(), fullUserData);
       navigate('/');
     } else {
       throw new Error(response.message || 'Login failed');

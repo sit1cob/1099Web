@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ApiService from '../api/apiService';
+import { trackSOCompleted, trackSORescheduled, trackSOCustomerNotHome, trackSOCancelled, trackSOEstimateDeclined } from '../utils/clarityTracking';
 import { ArrowLeft, Loader2, Camera, X, Check } from 'lucide-react';
 
 const FALLBACK_COMPLETION_TYPES = [
@@ -86,6 +87,14 @@ const JobCompletePage = () => {
       if (isEstimateDeclined) payload.estimateDeclineReason = estimateDeclineReason;
 
       await ApiService.updateAssignmentStatusV3(id!, payload);
+
+      // Track SO funnel terminal state
+      if (isCompleted) trackSOCompleted(id!, completionType);
+      else if (isRescheduled) trackSORescheduled(id!, rescheduleReason);
+      else if (isCNH) trackSOCustomerNotHome(id!);
+      else if (isCancelAtDoor) trackSOCancelled(id!);
+      else if (isEstimateDeclined) trackSOEstimateDeclined(id!);
+      else trackSOCompleted(id!, completionType);
 
       if (selectedPhoto) {
         try { await ApiService.uploadCompletionPhoto(id!, selectedPhoto); } catch (e) { console.error('Photo upload failed:', e); }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ApiService from '../api/apiService';
+import { trackMarkArrived, trackApplianceUpdated, trackReschedule, trackPartsOrdered, trackPartAdded, trackJobCompleted, trackJobClaimed, trackPartDeleted, trackStatusChange, trackSOClaimed, trackSOCompleted, trackSOCustomerNotHome, trackSOCancelled, trackSOEstimateDeclined, trackSORescheduled, trackSOViewed, trackSOInProgress } from '../utils/clarityTracking';
 import { mockDb } from '../api/mockData';
 import { formatUSDate } from '../utils/date';
 import {
@@ -514,6 +515,7 @@ const AssignmentsPage = () => {
     if (!selectedId) return;
     try {
       await ApiService.updateAssignmentStatus(selectedId, 'arrived');
+      trackMarkArrived(selectedId);
       setShowArrivedConfirm(false);
       loadData();
     } catch (e) {
@@ -563,6 +565,8 @@ const AssignmentsPage = () => {
         }
         return a;
       }));
+      trackApplianceUpdated(selectedId);
+      trackSOInProgress(selectedId);
       setShowApplianceDrawer(false);
       loadData();
     } catch (e) {
@@ -586,6 +590,8 @@ const AssignmentsPage = () => {
         source: 'vendor_portal'
       });
       
+      trackReschedule(selectedId);
+      trackSORescheduled(selectedId, rescheduleForm.reason);
       setShowRescheduleWizard(false);
       setRescheduleForm({
         step: 1,
@@ -686,9 +692,11 @@ const AssignmentsPage = () => {
           price: item.price || 15.00
         });
       }
+      trackPartsOrdered(selectedId);
       // If clutch oil (partsError active), mark job as part_order and launch reschedule
       if (partsError) {
         await ApiService.updateAssignmentStatus(selectedId, 'part_order');
+        trackStatusChange(selectedId, 'part_order');
         setShowPartsModal(false);
         setCart([]);
         setPartsError(null);
@@ -855,6 +863,13 @@ const AssignmentsPage = () => {
       }
 
       await ApiService.updateAssignmentStatusV3(selectedId, payload);
+      // Track specific funnel terminal state
+      if (isCompleteCompleted) trackSOCompleted(selectedId, completeForm.completionType);
+      else if (isCompleteRescheduled) trackSORescheduled(selectedId, completeForm.rescheduleReason);
+      else if (isCompleteCNH) trackSOCustomerNotHome(selectedId);
+      else if (isCompleteCancelAtDoor) trackSOCancelled(selectedId);
+      else if (isCompleteEstimateDeclined) trackSOEstimateDeclined(selectedId);
+      else trackSOCompleted(selectedId, completeForm.completionType);
 
       setShowCompleteModal(false);
       // Reset form
@@ -1315,6 +1330,8 @@ const AssignmentsPage = () => {
                         try {
                           const res = await ApiService.claimJob(activeJobDetails.id, { notes: '', action: 'accept' });
                           if (res.success) {
+                            trackJobClaimed(activeJobDetails.id);
+                            trackSOClaimed(activeJobDetails.id);
                             alert('Job claimed successfully!');
                             loadData();
                           } else {
@@ -3174,6 +3191,7 @@ const PartsListSection = ({
     try {
       const res = await ApiService.deletePart(jobId, part.orderId, part.id);
       if (res.success) {
+        trackPartDeleted(jobId);
         loadParts();
         // Also update main list
         const a = mockDb.getAssignment(jobId);
