@@ -307,6 +307,7 @@ class ApiService {
             customerPhone: a.job.customerPhone,
             scheduledDate: a.scheduledDate,
             applianceType: a.job.applianceType,
+            applianceCode: a.job.applianceCode || a.job.applianceType,
             manufacturerBrand: a.job.manufacturerBrand,
             serviceDescription: a.job.serviceDescription,
             applianceModel: a.job.applianceModel,
@@ -471,6 +472,7 @@ class ApiService {
             customerState: a.job.customerState,
             customerZip: a.job.customerZip,
             applianceType: a.job.applianceType,
+            applianceCode: a.job.applianceCode || a.job.applianceType,
             manufacturerBrand: a.job.manufacturerBrand,
             scheduledDate: a.job.scheduledDate,
             priority: a.job.priority
@@ -877,7 +879,11 @@ class ApiService {
     } catch (error) {
       console.warn('deletePart failed, deleting from mock state.');
       const parts = mockDb.getParts();
-      const index = parts.findIndex(p => p.id === partId || p.orderId === orderId);
+      const index = parts.findIndex(p => 
+        String(p.id) === String(partId) || 
+        String(p.orderId) === String(orderId) ||
+        (String(p.orderId).includes(String(assignmentId)) && String(p.id) === String(partId))
+      );
       if (index > -1) {
         parts.splice(index, 1);
       }

@@ -28,12 +28,13 @@ const CNH_REASONS = ['No Answer at Door', 'Customer Not Home', 'Customer Cancell
 const CANCEL_REASONS = ['Customer Declined Service', 'Unsafe Working Conditions', 'Appliance Not Accessible', 'Customer Not Present and No Access', 'Other Safety Concern'];
 const ESTIMATE_DECLINE_REASONS = ['Cost Too High', 'Customer Willing to Repair Themselves', 'Customer Wants Replacement Instead', 'Warranty/Authorization Issues', 'Other'];
 
-const STATUS_TABS = ['All', 'Assigned', 'In Progress', 'Available', 'Non-Sears Job'];
+const STATUS_TABS = ['All', 'Assigned', 'In Progress', 'Completed', 'Available', 'Non-Sears Job'];
 
 const DOT_COLORS: Record<string, string> = {
   All: '',
   Assigned: 'bg-[#2372BE]',
   'In Progress': 'bg-[#E57725]',
+  Completed: 'bg-[#16A34A]',
   Available: 'bg-[#28A745]',
   'Non-Sears Job': 'bg-[#F59E0B]',
 };
@@ -108,8 +109,12 @@ const AssignmentsPage = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const idParam = params.get('id');
+    const searchParam = params.get('search');
     if (idParam) {
       setSelectedId(idParam);
+    }
+    if (searchParam) {
+      setSearchQuery(searchParam);
     }
   }, [location.search]);
 
@@ -346,6 +351,8 @@ const AssignmentsPage = () => {
       list = mappedSears.filter(a => ['arrived', 'in_progress', 'part_order', 'rescheduled'].includes((a.status || '').toLowerCase()));
     } else if (activeTab === 'Available') {
       list = mappedAvail;
+    } else if (activeTab === 'Completed') {
+      list = mappedSears.filter(a => ['completed', 'cancelled', 'customer_not_home', 'estimate_declined'].includes((a.status || '').toLowerCase()));
     } else if (activeTab === 'Non-Sears Job') {
       list = mappedNonSears;
     }
@@ -444,7 +451,11 @@ const AssignmentsPage = () => {
       }
     }));
     const combined = [...mappedSears, ...mappedAvail, ...mappedNonSears];
-    return combined.find(a => String(a.id) === String(selectedId)) || null;
+    const normalizedId = String(selectedId).replace(/^SO-/i, '');
+    // Prioritize soNumber match to avoid false matches on assignment id
+    return combined.find(a => String(a.soNumber).replace(/^SO-/i, '') === normalizedId)
+      || combined.find(a => String(a.id) === String(selectedId) || String(a.id) === normalizedId)
+      || null;
   }, [assignments, availableJobs, nonShsJobs, selectedId]);
 
   const activeAssignments = useMemo(() => {
@@ -452,9 +463,10 @@ const AssignmentsPage = () => {
   }, [assignments]);
 
   const statusCount = (status: string) => {
-    if (status === 'All') return assignments.length + availableJobs.length;
+    if (status === 'All') return assignments.length + availableJobs.length + nonShsJobs.length;
     if (status === 'Assigned') return activeAssignments.filter(a => (a.status || '').toLowerCase() === 'assigned').length;
     if (status === 'In Progress') return activeAssignments.filter(a => ['arrived', 'in_progress', 'part_order', 'rescheduled'].includes((a.status || '').toLowerCase())).length;
+    if (status === 'Completed') return assignments.filter(a => ['completed', 'cancelled', 'customer_not_home', 'estimate_declined'].includes((a.status || '').toLowerCase())).length;
     if (status === 'Available') return availableJobs.length;
     if (status === 'Non-Sears Job') return nonShsJobs.length;
     return 0;
@@ -541,19 +553,11 @@ const AssignmentsPage = () => {
     e.preventDefault();
     if (!selectedId) return;
     try {
-      await ApiService.updateApplianceInfo(selectedId, {
-        applianceBrandname: applianceForm.brand,
-        applianceModel: applianceForm.model,
-        applianceSerial: applianceForm.serial,
-        applianceIssue: applianceForm.issue,
-        status: 'in_progress'
-      });
-      // Update local state immediately so UI reflects changes
+      // Save appliance details locally without sending status change to API
       setAssignments(prev => prev.map(a => {
         if (String(a.id) === String(selectedId)) {
           return {
             ...a,
-            status: 'in_progress',
             job: {
               ...a.job,
               manufacturerBrand: applianceForm.brand,
@@ -566,9 +570,7 @@ const AssignmentsPage = () => {
         return a;
       }));
       trackApplianceUpdated(selectedId);
-      trackSOInProgress(selectedId);
       setShowApplianceDrawer(false);
-      loadData();
     } catch (e) {
       console.error(e);
     }
@@ -615,13 +617,14 @@ const AssignmentsPage = () => {
   // Parts search & cart flow
   const handlePartsSearch = async () => {
     setPartsSearch(prev => ({ ...prev, searching: true }));
+    const assignmentNumId = Number(activeJobDetails?.id) || Number(String(selectedId).replace(/\D/g, '')) || 0;
     try {
       let res: any;
       if (partsSearch.tab === 'model') {
-        res = await ApiService.searchModels(Number(selectedId), partsSearch.query);
+        res = await ApiService.searchModels(assignmentNumId, partsSearch.query);
         if (res.success && res.data && res.data[0]) {
           // get parts for model
-          const partsRes = await ApiService.getModelParts(Number(selectedId), res.data[0].modelId);
+          const partsRes = await ApiService.getModelParts(assignmentNumId, res.data[0].modelId);
           if (partsRes.success) {
             setPartsSearch(prev => ({ ...prev, results: partsRes.data || [], searching: false }));
           }
@@ -1046,7 +1049,8 @@ const AssignmentsPage = () => {
                   </div>
                 ) : (
                   filtered.map(a => {
-                    const isSel = String(a.id) === String(selectedId);
+                    const selNorm = String(selectedId || '').replace(/^SO-/i, '');
+                    const isSel = String(a.soNumber || '').replace(/^SO-/i, '') === selNorm || String(a.id) === String(selectedId) || String(a.id) === selNorm;
                     const status = a.status || 'assigned';
                     const accentColor = getStatusAccentColor(status);
                     const pillStyle = getStatusStyle(status);
@@ -1055,7 +1059,7 @@ const AssignmentsPage = () => {
                       ? String(rawSo).trim().toUpperCase()
                       : `SO-${String(rawSo).trim()}`;
                     const dateStr = a.scheduledDate || a.job?.scheduledDate;
-                    const applianceType = a.job?.applianceType || a.job?.appliance || 'Service Job';
+                    const applianceType = a.job?.applianceCode || a.job?.applianceType || a.job?.appliance || 'Service Job';
                     const customerName = a.job?.customerName || '';
                     
                     return (
@@ -1299,7 +1303,7 @@ const AssignmentsPage = () => {
                   <div>
                     <div className="flex items-center gap-2.5">
                       <h3 className="text-lg font-black text-gray-900 tracking-tight">
-                        {activeJobDetails.job?.applianceType?.toUpperCase() || 'SERVICE ASSIGNMENT'}
+                        {(activeJobDetails.job?.applianceCode || activeJobDetails.job?.applianceType || 'SERVICE ASSIGNMENT').toUpperCase()}
                       </h3>
                       {activeJobDetails.job?.priority && (
                         <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-[9px] font-extrabold rounded-md uppercase tracking-wider shadow-sm">
@@ -1363,18 +1367,10 @@ const AssignmentsPage = () => {
                         <Navigation className="h-4 w-4" />
                         <span>Mark Arrived</span>
                       </button>
-                      
-                      <button
-                        onClick={() => setShowCompleteModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-650 to-indigo-650 hover:from-blue-600 hover:to-indigo-600 border border-blue-500/25 hover:border-blue-400/30 text-gray-900 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-blue-500/10 hover:scale-[1.02] duration-200"
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                        <span>Job Completed</span>
-                      </button>
                     </>
                   )}
 
-                  {activeJobDetails._type === 'sears' && (
+                  {activeJobDetails._type === 'sears' && !['in_progress', 'completed', 'cancelled', 'customer_not_home', 'estimate_declined'].includes(activeJobDetails.status) && (
                     <button
                       onClick={() => setShowApplianceDrawer(true)}
                       className="flex items-center gap-2 px-4 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
@@ -1384,7 +1380,7 @@ const AssignmentsPage = () => {
                     </button>
                   )}
 
-                  {activeJobDetails._type === 'sears' && (activeJobDetails.status === 'in_progress' || activeJobDetails.status === 'arrived') && (
+                  {activeJobDetails._type === 'sears' && activeJobDetails.status === 'arrived' && (
                     <>
                       <button
                         onClick={() => setShowPartsModal(true)}
@@ -1620,7 +1616,7 @@ const AssignmentsPage = () => {
                         <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
                         <h4 className="font-bold text-[10px] text-blue-400 tracking-[0.2em] uppercase">Appliance Specifications</h4>
                       </div>
-                      {activeJobDetails._type === 'sears' && (
+                      {activeJobDetails._type === 'sears' && !['in_progress', 'completed', 'cancelled', 'customer_not_home', 'estimate_declined'].includes(activeJobDetails.status) && (
                         <button
                           onClick={() => setShowApplianceDrawer(true)}
                           className="text-[11px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1 transition-colors"
@@ -3185,18 +3181,18 @@ const PartsListSection = ({
 
   useEffect(() => {
     loadParts();
-  }, [jobId, assignments]); // reload when assignments updates
+  }, [jobId]); // reload when job changes
 
   const handleDeletePart = async (part: any) => {
     try {
       const res = await ApiService.deletePart(jobId, part.orderId, part.id);
       if (res.success) {
         trackPartDeleted(jobId);
-        loadParts();
+        // Immediately remove from local state so UI updates instantly
+        setParts(prev => prev.filter(p => p.id !== part.id));
         // Also update main list
         const a = mockDb.getAssignment(jobId);
         if (a) {
-          // just force reload
           setAssignments(prev => [...prev]);
         }
       }
