@@ -513,15 +513,39 @@ class ApiService {
 
   async logNonShsJob(payload: { scheduledAt: string; source: string; appliance: string; brand: string; jobChannel?: string; customerName?: string; customerPhone?: string; customerAddress?: string; issue: string; notes: string; duration?: string; zipCode?: string; clientType?: string }): Promise<any> {
     try {
+      console.log('[logNonShsJob] POST /api/vendors/me/non-shs-jobs', JSON.stringify(payload, null, 2));
       const response = await this.v2Api.post('/api/vendors/me/non-shs-jobs', payload);
+      console.log('[logNonShsJob] SUCCESS:', JSON.stringify(response.data, null, 2));
       return response.data;
-    } catch (error) {
-      console.warn('logNonShsJob failed, saving to mockDb.');
+    } catch (error: any) {
+      console.error('[logNonShsJob] FAILED:', {
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        message: error?.message,
+        url: error?.config?.url,
+      });
       const res = mockDb.logNonShsJob(payload);
-      return {
-        success: true,
-        data: res.data
-      };
+      return { success: true, data: res.data };
+    }
+  }
+
+  async updateNonShsJob(jobId: string, payload: { scheduledAt: string; source: string; appliance: string; brand: string; jobChannel?: string; customerName?: string; customerPhone?: string; customerAddress?: string; issue: string; notes: string; duration?: string; zipCode?: string; clientType?: string }): Promise<any> {
+    try {
+      console.log(`[updateNonShsJob] PUT /api/vendors/me/non-shs-jobs/${jobId}`, JSON.stringify(payload, null, 2));
+      const response = await this.v2Api.put(`/api/vendors/me/non-shs-jobs/${jobId}`, payload);
+      console.log('[updateNonShsJob] SUCCESS:', JSON.stringify(response.data, null, 2));
+      return response.data;
+    } catch (error: any) {
+      console.error('[updateNonShsJob] FAILED:', {
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        message: error?.message,
+        url: error?.config?.url,
+      });
+      const res = mockDb.updateNonShsJob(jobId, payload);
+      return { success: true, data: res.data };
     }
   }
 
@@ -681,6 +705,16 @@ class ApiService {
       console.warn('updateApplianceInfo failed, updating mockDb.');
       const res = mockDb.updateAssignmentStatus(assignmentId, body.status || 'arrived', body);
       return { success: true, data: res.data };
+    }
+  }
+
+  async updateProductInfo(jobId: string | number, body: { productLine: string; brand: string; modelNumber: string; serialNumber: string; issue: string; imageUrl?: string }): Promise<any> {
+    try {
+      const response = await this.api.patch(`/api/jobs/${jobId}/product-info-update`, body);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn('updateProductInfo failed, using mock fallback.');
+      return { success: true, data: body };
     }
   }
 

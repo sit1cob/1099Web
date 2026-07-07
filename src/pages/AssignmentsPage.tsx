@@ -10,7 +10,7 @@ import {
   ClipboardList, Plus, Search, Trash2, X, AlertCircle, 
   Sparkles, Check, RefreshCw, Camera, ChevronRight, CheckSquare, Square,
   Copy, Refrigerator, ArrowLeft, User, FileText, Package, ExternalLink,
-  ChevronLeft, Truck, MessageSquare
+  ChevronLeft, Truck, MessageSquare, Pencil
 } from 'lucide-react';
 
 
@@ -121,6 +121,7 @@ const AssignmentsPage = () => {
   // Modals & Drawers trigger states
   const [showLogNonSears, setShowLogNonSears] = useState(false);
   const [nonSearsReview, setNonSearsReview] = useState(false);
+  const [editingNonSearsId, setEditingNonSearsId] = useState<string | null>(null);
   const [showArrivedConfirm, setShowArrivedConfirm] = useState(false);
   const [showTrackPartsModal, setShowTrackPartsModal] = useState(false);
   const [showTrackDetailModal, setShowTrackDetailModal] = useState(false);
@@ -348,11 +349,11 @@ const AssignmentsPage = () => {
     } else if (activeTab === 'Assigned') {
       list = mappedSears.filter(a => (a.status || '').toLowerCase() === 'assigned');
     } else if (activeTab === 'In Progress') {
-      list = mappedSears.filter(a => ['arrived', 'in_progress', 'part_order', 'rescheduled'].includes((a.status || '').toLowerCase()));
+      list = mappedSears.filter(a => ['arrived', 'in_progress', 'waiting_on_parts', 'part_arrived', 'part_order', 'rescheduled'].includes((a.status || '').toLowerCase()));
     } else if (activeTab === 'Available') {
       list = mappedAvail;
     } else if (activeTab === 'Completed') {
-      list = mappedSears.filter(a => ['completed', 'cancelled', 'customer_not_home', 'estimate_declined'].includes((a.status || '').toLowerCase()));
+      list = mappedSears.filter(a => ['completed'].includes((a.status || '').toLowerCase()));
     } else if (activeTab === 'Non-Sears Job') {
       list = mappedNonSears;
     }
@@ -459,14 +460,14 @@ const AssignmentsPage = () => {
   }, [assignments, availableJobs, nonShsJobs, selectedId]);
 
   const activeAssignments = useMemo(() => {
-    return assignments.filter(a => !['completed', 'cancelled', 'customer_not_home', 'estimate_declined'].includes((a.status || '').toLowerCase()));
+    return assignments.filter(a => !['completed'].includes((a.status || '').toLowerCase()));
   }, [assignments]);
 
   const statusCount = (status: string) => {
     if (status === 'All') return assignments.length + availableJobs.length + nonShsJobs.length;
     if (status === 'Assigned') return activeAssignments.filter(a => (a.status || '').toLowerCase() === 'assigned').length;
-    if (status === 'In Progress') return activeAssignments.filter(a => ['arrived', 'in_progress', 'part_order', 'rescheduled'].includes((a.status || '').toLowerCase())).length;
-    if (status === 'Completed') return assignments.filter(a => ['completed', 'cancelled', 'customer_not_home', 'estimate_declined'].includes((a.status || '').toLowerCase())).length;
+    if (status === 'In Progress') return activeAssignments.filter(a => ['arrived', 'in_progress', 'waiting_on_parts', 'part_arrived', 'part_order', 'rescheduled'].includes((a.status || '').toLowerCase())).length;
+    if (status === 'Completed') return assignments.filter(a => ['completed'].includes((a.status || '').toLowerCase())).length;
     if (status === 'Available') return availableJobs.length;
     if (status === 'Non-Sears Job') return nonShsJobs.length;
     return 0;
@@ -479,23 +480,32 @@ const AssignmentsPage = () => {
       let hour24 = parseInt(nonSearsForm.startHour);
       if (nonSearsForm.startPeriod === 'PM' && hour24 !== 12) hour24 += 12;
       if (nonSearsForm.startPeriod === 'AM' && hour24 === 12) hour24 = 0;
-      const payload = {
-        scheduledAt: `${nonSearsForm.scheduledDate}T${String(hour24).padStart(2, '0')}:${nonSearsForm.startMinute}:00.000Z`,
+      // Convert duration string to minutes integer (API expects non-negative integer)
+      const durationMap: Record<string, number> = { '30 min': 30, '1 hour': 60, '1.5 hours': 90, '2 hours': 120, '2.5 hours': 150, '3 hours': 180, '4 hours': 240 };
+      const durationMinutes = durationMap[nonSearsForm.duration] || 60;
+      const payload: any = {
+        scheduledAt: `${nonSearsForm.scheduledDate}T${String(hour24).padStart(2, '0')}:${nonSearsForm.startMinute}:00`,
         source: nonSearsForm.source === 'Someone Else' ? (nonSearsForm.sourceOther || 'Someone Else') : nonSearsForm.source,
         appliance: nonSearsForm.appliance,
         brand: nonSearsForm.brand,
-        jobChannel: nonSearsForm.jobChannel,
-        customerName: nonSearsForm.customerName,
-        customerPhone: nonSearsForm.customerPhone,
-        customerAddress: nonSearsForm.customerAddress,
         issue: nonSearsForm.issue,
-        notes: nonSearsForm.notes,
-        duration: nonSearsForm.duration,
-        zipCode: nonSearsForm.zipCode,
-        clientType: nonSearsForm.clientType
+        duration: durationMinutes,
+        zip: nonSearsForm.zipCode,
+        clientType: nonSearsForm.clientType,
+        earnings: '0.00',
       };
-      await ApiService.logNonShsJob(payload);
+      if (nonSearsForm.jobChannel) payload.jobChannel = nonSearsForm.jobChannel;
+      if (nonSearsForm.customerName) payload.customerName = nonSearsForm.customerName;
+      if (nonSearsForm.customerPhone) payload.customerPhone = nonSearsForm.customerPhone;
+      if (nonSearsForm.customerAddress) payload.customerAddress = nonSearsForm.customerAddress;
+      if (nonSearsForm.notes) payload.notes = nonSearsForm.notes;
+      if (editingNonSearsId) {
+        await ApiService.updateNonShsJob(editingNonSearsId, payload);
+      } else {
+        await ApiService.logNonShsJob(payload);
+      }
       setShowLogNonSears(false);
+      setEditingNonSearsId(null);
       // Reset form
       setNonSearsForm({
         source: '',
@@ -553,7 +563,16 @@ const AssignmentsPage = () => {
     e.preventDefault();
     if (!selectedId) return;
     try {
-      // Save appliance details locally without sending status change to API
+      const jobId = activeJobDetails?.job?.id || activeJobDetails?.id || selectedId;
+      const productLine = activeJobDetails?.job?.applianceCode || activeJobDetails?.job?.applianceType || '';
+      await ApiService.updateProductInfo(jobId, {
+        productLine,
+        brand: applianceForm.brand,
+        modelNumber: applianceForm.model,
+        serialNumber: applianceForm.serial,
+        issue: applianceForm.issue,
+      });
+      // Update local state so UI reflects changes
       setAssignments(prev => prev.map(a => {
         if (String(a.id) === String(selectedId)) {
           return {
@@ -698,8 +717,8 @@ const AssignmentsPage = () => {
       trackPartsOrdered(selectedId);
       // If clutch oil (partsError active), mark job as part_order and launch reschedule
       if (partsError) {
-        await ApiService.updateAssignmentStatus(selectedId, 'part_order');
-        trackStatusChange(selectedId, 'part_order');
+        await ApiService.updateAssignmentStatus(selectedId, 'waiting_on_parts');
+        trackStatusChange(selectedId, 'waiting_on_parts');
         setShowPartsModal(false);
         setCart([]);
         setPartsError(null);
@@ -843,7 +862,7 @@ const AssignmentsPage = () => {
       }
 
       const payload: any = {
-        status: isCompleteCompleted ? 'completed' : isCompleteRescheduled ? 'rescheduled' : isCompleteCNH ? 'customer_not_home' : isCompleteCancelAtDoor ? 'cancelled' : isCompleteEstimateDeclined ? 'estimate_declined' : 'completed',
+        status: 'completed',
         serviceAttemptType: completeForm.repairType,
         completionNotes: completeForm.notes,
         completionType: completeForm.completionType,
@@ -1370,7 +1389,7 @@ const AssignmentsPage = () => {
                     </>
                   )}
 
-                  {activeJobDetails._type === 'sears' && !['in_progress', 'completed', 'cancelled', 'customer_not_home', 'estimate_declined'].includes(activeJobDetails.status) && (
+                  {activeJobDetails._type === 'sears' && !['in_progress', 'completed'].includes(activeJobDetails.status) && (
                     <button
                       onClick={() => setShowApplianceDrawer(true)}
                       className="flex items-center gap-2 px-4 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
@@ -1616,7 +1635,7 @@ const AssignmentsPage = () => {
                         <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
                         <h4 className="font-bold text-[10px] text-blue-400 tracking-[0.2em] uppercase">Appliance Specifications</h4>
                       </div>
-                      {activeJobDetails._type === 'sears' && !['in_progress', 'completed', 'cancelled', 'customer_not_home', 'estimate_declined'].includes(activeJobDetails.status) && (
+                      {activeJobDetails._type === 'sears' && !['in_progress', 'completed'].includes(activeJobDetails.status) && (
                         <button
                           onClick={() => setShowApplianceDrawer(true)}
                           className="text-[11px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1 transition-colors"
@@ -1670,14 +1689,14 @@ const AssignmentsPage = () => {
                   </div>
 
                   {/* Parts Ordered list section */}
-                  {['assigned', 'arrived', 'in_progress', 'completed', 'part_order', 'rescheduled'].includes(activeJobDetails.status) && (
+                  {['assigned', 'arrived', 'in_progress', 'completed', 'waiting_on_parts', 'part_arrived', 'part_order', 'rescheduled'].includes(activeJobDetails.status) && (
                     <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6 space-y-6 md:col-span-2">
                       <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
                           <h4 className="font-bold text-[10px] text-blue-400 tracking-[0.2em] uppercase">Parts Ordered for this Job</h4>
                         </div>
-                        {['arrived', 'in_progress'].includes(activeJobDetails.status) && (
+                        {activeJobDetails.status === 'arrived' && (
                           <button
                             onClick={() => setShowPartsModal(true)}
                             className="text-[11px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1 transition-colors"
@@ -1750,8 +1769,8 @@ const AssignmentsPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg shadow-2xl text-gray-700 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-6 pt-6 pb-3 border-b border-gray-200 shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">{nonSearsReview ? 'Looks good?' : 'Log Non-Sears Job'}</h3>
-              <button onClick={() => { setShowLogNonSears(false); setNonSearsReview(false); }} className="text-gray-500 hover:text-gray-900 cursor-pointer"><X className="h-5 w-5" /></button>
+              <h3 className="text-lg font-bold text-gray-900">{nonSearsReview ? 'Looks good?' : editingNonSearsId ? 'Edit Non-Sears Job' : 'Log Non-Sears Job'}</h3>
+              <button onClick={() => { setShowLogNonSears(false); setNonSearsReview(false); setEditingNonSearsId(null); }} className="text-gray-500 hover:text-gray-900 cursor-pointer"><X className="h-5 w-5" /></button>
             </div>
 
             {nonSearsReview ? (
@@ -2048,7 +2067,7 @@ const AssignmentsPage = () => {
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={() => setShowLogNonSears(false)}
+                  onClick={() => { setShowLogNonSears(false); setEditingNonSearsId(null); }}
                   className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                 >
                   Cancel
@@ -2058,7 +2077,7 @@ const AssignmentsPage = () => {
                   disabled={!nonSearsForm.source || !nonSearsForm.appliance}
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer"
                 >
-                  Log External Job
+                  {editingNonSearsId ? 'Update Job' : 'Log External Job'}
                 </button>
               </div>
             </form>
