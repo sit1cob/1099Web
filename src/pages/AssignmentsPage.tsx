@@ -297,6 +297,46 @@ const AssignmentsPage = () => {
     loadData();
   }, []);
 
+  // Fetch full assignment details (model, serial) when a sears job is selected
+  useEffect(() => {
+    if (!selectedId) return;
+    const match = assignments.find(a => String(a.id) === String(selectedId));
+    if (!match) return; // only for sears assignments
+    (async () => {
+      try {
+        const res = await ApiService.getAssignmentDetails(String(selectedId));
+        console.log('[getAssignmentDetails] id:', selectedId, 'productInfoUpdate:', res?.data?.job?.productInfoUpdate);
+        if (res.success && res.data) {
+          const detail = res.data;
+          const piu = detail.job?.productInfoUpdate || {};
+          const model = piu.modelNumber || '';
+          const serial = piu.serialNumber || '';
+          const brand = piu.brand || detail.job?.manufacturerBrand || '';
+          const issue = piu.issue || detail.job?.serviceDescription || '';
+          const phone = detail.job?.customerPhone || '';
+          const address = detail.job?.customerAddress || '';
+          setAssignments(prev => prev.map(a => {
+            if (String(a.id) !== String(selectedId)) return a;
+            return {
+              ...a,
+              job: {
+                ...a.job,
+                manufacturerBrand: brand || a.job?.manufacturerBrand || '',
+                applianceModel: model || '-',
+                applianceSerial: serial || '-',
+                serviceDescription: issue || a.job?.serviceDescription || '',
+                customerPhone: phone || a.job?.customerPhone || '',
+                customerAddress: address || a.job?.customerAddress || '',
+              }
+            };
+          }));
+        }
+      } catch (e) {
+        console.warn('Failed to fetch assignment details:', e);
+      }
+    })();
+  }, [selectedId]);
+
   // Filter assignments, available jobs, and non-Sears jobs
   const filtered = useMemo(() => {
     let list: any[] = [];
@@ -346,7 +386,7 @@ const AssignmentsPage = () => {
     }));
 
     if (activeTab === 'All') {
-      list = [...mappedSears, ...mappedAvail, ...mappedNonSears];
+      list = [...mappedSears, ...mappedAvail];
     } else if (activeTab === 'Assigned') {
       list = mappedSears.filter(a => (a.status || '').toLowerCase() === 'assigned');
     } else if (activeTab === 'In Progress') {
@@ -452,7 +492,7 @@ const AssignmentsPage = () => {
         issue: n.issue,
       }
     }));
-    const combined = [...mappedSears, ...mappedAvail, ...mappedNonSears];
+    const combined = [...mappedNonSears, ...mappedSears, ...mappedAvail];
     const normalizedId = String(selectedId).replace(/^SO-/i, '');
     // Prioritize soNumber match (check both a.soNumber and a.job?.soNumber)
     return combined.find(a => {
@@ -460,6 +500,14 @@ const AssignmentsPage = () => {
       return soNum.length > 0 && soNum === normalizedId;
     }) || combined.find(a => String(a.id) === String(selectedId) || String(a.id) === normalizedId)
       || null;
+    // 1. Exact id match (handles non-sears and other direct id selections)
+    const exactMatch = combined.find(a => String(a.id) === String(selectedId));
+    if (exactMatch) return exactMatch;
+    // 2. soNumber match (handles SO-number navigation from parts page)
+    const soMatch = combined.find(a => String(a.soNumber).replace(/^SO-/i, '') === normalizedId);
+    if (soMatch) return soMatch;
+    // 3. Normalized id fallback
+    return combined.find(a => String(a.id) === normalizedId) || null;
   }, [assignments, availableJobs, nonShsJobs, selectedId]);
 
   const activeAssignments = useMemo(() => {
@@ -467,7 +515,7 @@ const AssignmentsPage = () => {
   }, [assignments]);
 
   const statusCount = (status: string) => {
-    if (status === 'All') return assignments.length + availableJobs.length + nonShsJobs.length;
+    if (status === 'All') return assignments.length + availableJobs.length;
     if (status === 'Assigned') return activeAssignments.filter(a => (a.status || '').toLowerCase() === 'assigned').length;
     if (status === 'In Progress') return activeAssignments.filter(a => ['arrived', 'in_progress', 'waiting_on_parts', 'part_arrived', 'part_order', 'rescheduled'].includes((a.status || '').toLowerCase())).length;
     if (status === 'Completed') return assignments.filter(a => ['completed'].includes((a.status || '').toLowerCase())).length;
@@ -963,7 +1011,7 @@ const AssignmentsPage = () => {
       <div className="flex-grow flex overflow-hidden">
         
         {/* Left Column Workspace */}
-        <div className="w-full lg:w-[450px] shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+        <div className="w-full lg:w-[300px] xl:w-[380px] 2xl:w-[450px] shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
           
           {/* Header */}
           <div className="p-5 border-b border-gray-200 shrink-0">
@@ -1296,7 +1344,7 @@ const AssignmentsPage = () => {
         </div>
 
         {/* Right Detail Pane Column */}
-        <div className="flex-grow flex flex-col bg-gray-50 overflow-hidden relative">
+        <div className="flex-grow min-w-0 flex flex-col bg-gray-50 overflow-hidden relative">
           
           {!activeJobDetails ? (
             <div className="flex-grow flex flex-col items-center justify-center p-8 text-center bg-white relative overflow-hidden">
@@ -1314,8 +1362,8 @@ const AssignmentsPage = () => {
             <div className="flex-grow flex flex-col overflow-hidden">
               
               {/* Detail Header Toolbar */}
-              <div className="p-6 border-b border-gray-200/80 bg-white shrink-0 space-y-4">
-                <div className="flex items-center gap-4">
+              <div className="p-4 lg:p-5 xl:p-6 border-b border-gray-200/80 bg-white shrink-0 space-y-3">
+                <div className="flex items-start gap-3">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/25 flex items-center justify-center text-blue-400 shrink-0 shadow-lg shadow-blue-500/10">
                     {(activeJobDetails.job?.applianceType || '').toLowerCase().includes('refriger') ? (
                       <Refrigerator className="h-6 w-6" />
@@ -1323,9 +1371,9 @@ const AssignmentsPage = () => {
                       <Wrench className="h-6 w-6" />
                     )}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2.5">
-                      <h3 className="text-lg font-black text-gray-900 tracking-tight">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base lg:text-lg font-black text-gray-900 tracking-tight break-words">
                         {(activeJobDetails.job?.applianceCode || activeJobDetails.job?.applianceType || 'SERVICE ASSIGNMENT').toUpperCase()}
                       </h3>
                       {activeJobDetails.job?.priority && (
@@ -1334,8 +1382,8 @@ const AssignmentsPage = () => {
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500 mt-1 uppercase tracking-wider font-bold">
-                      <span className="text-blue-400">
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] lg:text-[11px] text-gray-500 mt-1 uppercase tracking-wider font-bold">
+                      <span className="text-blue-400 break-all">
                         SERVICE ORDER: {(() => {
                           const rawSo = activeJobDetails.job?.soNumber || activeJobDetails.soNumber || activeJobDetails.id;
                           return String(rawSo).trim().toUpperCase().startsWith('SO-')
@@ -1456,13 +1504,13 @@ const AssignmentsPage = () => {
               </div>
 
               {/* Detail Content Space */}
-              <div className="flex-grow overflow-y-auto p-6 space-y-6">
+              <div className="flex-grow overflow-y-auto overflow-x-hidden p-4 lg:p-5 xl:p-6">
                 
-                {/* Visual Grid: Left Side Customer / Job, Right Side Guidelines */}
-                <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
+                {/* Detail cards stacked vertically */}
+                <div className="flex flex-col gap-4 lg:gap-5">
                   
                   {/* Customer Information Card */}
-                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6 space-y-6 relative overflow-visible group min-w-0">
+                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-4 lg:p-6 space-y-4 lg:space-y-6 overflow-hidden min-w-0">
                     <div className="flex items-center border-b border-gray-200/60 pb-3">
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
@@ -1514,7 +1562,7 @@ const AssignmentsPage = () => {
                   </div>
 
                   {/* Appointment Guidelines Card */}
-                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6 space-y-6">
+                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-4 lg:p-6 space-y-4 lg:space-y-6">
                     <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-3 bg-indigo-500 rounded-full" />
@@ -1596,7 +1644,7 @@ const AssignmentsPage = () => {
                   </div>
 
                   {/* Service History Card */}
-                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6 space-y-6">
+                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-4 lg:p-6 space-y-4 lg:space-y-6">
                     <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-3 bg-teal-500 rounded-full" />
@@ -1606,8 +1654,9 @@ const AssignmentsPage = () => {
                     <p className="text-xs text-gray-500 italic">No service history available</p>
                   </div>
 
-                  {/* SHS Service Guidelines */}
-                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6 space-y-4 md:col-span-2">
+                  {/* SHS Service Guidelines - only for sears jobs */}
+                  {activeJobDetails._type === 'sears' && (
+                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-4 lg:p-6 space-y-4">
                     <div className="text-center space-y-1">
                       <h4 className="font-bold text-base text-gray-900">SHS Service Guidelines</h4>
                       <p className="text-xs text-gray-400 italic">These are recommended best practices, not requirements.</p>
@@ -1631,9 +1680,10 @@ const AssignmentsPage = () => {
                       ))}
                     </div>
                   </div>
+                  )}
 
                   {/* Appliance Specs / Brand / Model information */}
-                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-6 space-y-6 md:col-span-2">
+                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-4 lg:p-6 space-y-4 lg:space-y-6">
                     <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
