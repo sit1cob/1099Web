@@ -382,9 +382,8 @@ const PartsPage = () => {
                         
                         <button
                           onClick={() => {
-                            const rawId = String(item.assignmentId || item.orderId || '');
-                            const cleanId = rawId.replace('SO-', '');
-                            navigate(`/assignments?view=list&id=${cleanId || item.id}`);
+                            const soId = item.soNumber || item.assignmentId || item.orderId || item.id;
+                            navigate(`/assignments?view=list&id=${soId}`);
                           }}
                           className="flex items-center gap-1 bg-gray-50 hover:bg-gray-100 text-gray-705 border border-gray-200 px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
                         >

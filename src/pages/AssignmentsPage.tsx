@@ -443,7 +443,13 @@ const AssignmentsPage = () => {
       }
     }));
     const combined = [...mappedSears, ...mappedAvail, ...mappedNonSears];
-    return combined.find(a => String(a.id) === String(selectedId)) || null;
+    const selId = String(selectedId);
+    return combined.find(a => {
+      if (String(a.id) === selId) return true;
+      const aSo = String(a.soNumber || a.job?.soNumber || '').replace(/^SO-/i, '');
+      const selSo = selId.replace(/^SO-/i, '');
+      return aSo.length > 0 && selSo.length > 0 && aSo === selSo;
+    }) || null;
   }, [assignments, availableJobs, nonShsJobs, selectedId]);
 
   const activeAssignments = useMemo(() => {
@@ -1031,7 +1037,10 @@ const AssignmentsPage = () => {
                   </div>
                 ) : (
                   filtered.map(a => {
-                    const isSel = String(a.id) === String(selectedId);
+                    const _selId = String(selectedId || '');
+                    const _aSo = String(a.job?.soNumber || a.soNumber || '').replace(/^SO-/i, '');
+                    const _selSo = _selId.replace(/^SO-/i, '');
+                    const isSel = String(a.id) === _selId || (_aSo.length > 0 && _selSo.length > 0 && _aSo === _selSo);
                     const status = a.status || 'assigned';
                     const accentColor = getStatusAccentColor(status);
                     const pillStyle = getStatusStyle(status);
