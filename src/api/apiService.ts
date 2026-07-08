@@ -9,6 +9,7 @@ import { RescheduleRequest, RescheduleResponse } from '../types/reschedule.types
 import { VendorProfileResponse } from '../types/vendor.types';
 import { API_CONFIG, V2_API_CONFIG } from '../utils/config';
 import { mockDb } from './mockData';
+import { trackApiError } from '../utils/clarityTracking';
 
 const TOKEN_ERROR_PATTERNS = [
   'invalid token', 'expired token', 'token expired', 'jwt expired',
@@ -84,7 +85,21 @@ class ApiService {
       },
       (error) => {
         const status = error?.response?.status;
-        const isLoginEndpoint = error?.config?.url?.includes('/api/auth/login');
+        const url = error?.config?.url || '';
+        const method = error?.config?.method || 'GET';
+        const isLoginEndpoint = url.includes('/api/auth/login');
+
+        // Track every API error in Clarity
+        trackApiError({
+          method,
+          url,
+          status,
+          statusText: error?.response?.statusText,
+          errorMessage: error?.message,
+          errorCode: error?.code,
+          responseData: error?.response?.data,
+        });
+
         if ((status === 401 || status === 403 || isTokenError(error?.response?.data)) && !isLoginEndpoint) {
           forceLogout();
         }
@@ -103,11 +118,19 @@ class ApiService {
       const mockUser = {
         id: 'vendor-1',
         username: request.username || 'sasha_1099',
+        name: request.username || 'test_vendor',
         vendorName: 'Sasha Tech Solutions',
         email: 'sasha.tech@searskairos.ai',
+        phone: '555-123-6789',
         mobile: '555-019-2834',
         role: 'registered_user',
-        tier: 'ELITE'
+        tier: 'ELITE',
+        isActive: true,
+        zipCodes: ['60179'],
+        addressLine1: '5407 Trillium Blvd',
+        city: 'Hoffman Estate',
+        state: 'IL',
+        zipCode: '60192'
       };
       const responseData: LoginResponse = {
         success: true,
@@ -131,7 +154,13 @@ class ApiService {
     const user = response.data?.user || response.user;
     if (accessToken) localStorage.setItem('accessToken', accessToken);
     if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-    if (user) localStorage.setItem('user', JSON.stringify(user));
+    if (user) {
+      // Merge top-level response.data fields into user so address/phone/etc. are persisted
+      const fullUser = { ...(response.data || {}), ...user };
+      delete fullUser.accessToken;
+      delete fullUser.refreshToken;
+      localStorage.setItem('user', JSON.stringify(fullUser));
+    }
   }
 
   logout(): void {
@@ -156,24 +185,27 @@ class ApiService {
     try {
       const response = await this.api.get<VendorProfileResponse>('/api/vendors/me');
       const raw = response.data?.data || response.data;
+      console.log('[getVendorProfile] Raw API response:', JSON.stringify(raw));
       // Map real API field names to what the UI expects
+      const storedUser = this.getUser();
       const mapped: any = {
         ...raw,
-        vendorName: (raw as any)?.vendorName || (raw as any)?.name || null,
-        mobile: (raw as any)?.mobile || (raw as any)?.phone || null,
-        email: (raw as any)?.email || null,
+        vendorName: (raw as any)?.vendorName || (raw as any)?.name || storedUser?.vendorName || null,
+        mobile: (raw as any)?.mobile || (raw as any)?.phone || (raw as any)?.contactNumber || null,
+        email: (raw as any)?.email || (raw as any)?.emailAddress || (raw as any)?.contactEmail || storedUser?.email || null,
         countryCode: (raw as any)?.countryCode || 'US',
       };
       return { success: true, data: mapped };
     } catch (error) {
       console.warn('getVendorProfile API failed, falling back to mock.');
+      const storedUser = this.getUser();
       return {
         success: true,
         data: {
-          id: 'vendor-1',
-          vendorName: 'Sasha Tech Solutions',
-          email: 'sasha.tech@searskairos.ai',
-          mobile: '555-019-2834',
+          id: storedUser?.id || 'vendor-1',
+          vendorName: storedUser?.vendorName || 'Sasha Tech Solutions',
+          email: storedUser?.email || '',
+          mobile: storedUser?.mobile || '555-019-2834',
           tier: 'ELITE',
           addressLine1: '3333 Beverly Rd',
           city: 'Hoffman Estates',
@@ -275,6 +307,7 @@ class ApiService {
             customerPhone: a.job.customerPhone,
             scheduledDate: a.scheduledDate,
             applianceType: a.job.applianceType,
+            applianceCode: a.job.applianceCode || a.job.applianceType,
             manufacturerBrand: a.job.manufacturerBrand,
             serviceDescription: a.job.serviceDescription,
             applianceModel: a.job.applianceModel,
@@ -439,6 +472,7 @@ class ApiService {
             customerState: a.job.customerState,
             customerZip: a.job.customerZip,
             applianceType: a.job.applianceType,
+            applianceCode: a.job.applianceCode || a.job.applianceType,
             manufacturerBrand: a.job.manufacturerBrand,
             scheduledDate: a.job.scheduledDate,
             priority: a.job.priority
@@ -479,15 +513,39 @@ class ApiService {
 
   async logNonShsJob(payload: { scheduledAt: string; source: string; appliance: string; brand: string; jobChannel?: string; customerName?: string; customerPhone?: string; customerAddress?: string; issue: string; notes: string; duration?: string; zipCode?: string; clientType?: string }): Promise<any> {
     try {
+      console.log('[logNonShsJob] POST /api/vendors/me/non-shs-jobs', JSON.stringify(payload, null, 2));
       const response = await this.v2Api.post('/api/vendors/me/non-shs-jobs', payload);
+      console.log('[logNonShsJob] SUCCESS:', JSON.stringify(response.data, null, 2));
       return response.data;
-    } catch (error) {
-      console.warn('logNonShsJob failed, saving to mockDb.');
+    } catch (error: any) {
+      console.error('[logNonShsJob] FAILED:', {
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        message: error?.message,
+        url: error?.config?.url,
+      });
       const res = mockDb.logNonShsJob(payload);
-      return {
-        success: true,
-        data: res.data
-      };
+      return { success: true, data: res.data };
+    }
+  }
+
+  async updateNonShsJob(jobId: string, payload: { scheduledAt: string; source: string; appliance: string; brand: string; jobChannel?: string; customerName?: string; customerPhone?: string; customerAddress?: string; issue: string; notes: string; duration?: string; zipCode?: string; clientType?: string }): Promise<any> {
+    try {
+      console.log(`[updateNonShsJob] PUT /api/vendors/me/non-shs-jobs/${jobId}`, JSON.stringify(payload, null, 2));
+      const response = await this.v2Api.put(`/api/vendors/me/non-shs-jobs/${jobId}`, payload);
+      console.log('[updateNonShsJob] SUCCESS:', JSON.stringify(response.data, null, 2));
+      return response.data;
+    } catch (error: any) {
+      console.error('[updateNonShsJob] FAILED:', {
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        message: error?.message,
+        url: error?.config?.url,
+      });
+      const res = mockDb.updateNonShsJob(jobId, payload);
+      return { success: true, data: res.data };
     }
   }
 
@@ -647,6 +705,16 @@ class ApiService {
       console.warn('updateApplianceInfo failed, updating mockDb.');
       const res = mockDb.updateAssignmentStatus(assignmentId, body.status || 'arrived', body);
       return { success: true, data: res.data };
+    }
+  }
+
+  async updateProductInfo(jobId: string | number, body: { productLine: string; brand: string; modelNumber: string; serialNumber: string; issue: string; imageUrl?: string }): Promise<any> {
+    try {
+      const response = await this.api.patch(`/api/jobs/${jobId}/product-info-update`, body);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn('updateProductInfo failed, using mock fallback.');
+      return { success: true, data: body };
     }
   }
 
@@ -845,7 +913,11 @@ class ApiService {
     } catch (error) {
       console.warn('deletePart failed, deleting from mock state.');
       const parts = mockDb.getParts();
-      const index = parts.findIndex(p => p.id === partId || p.orderId === orderId);
+      const index = parts.findIndex(p => 
+        String(p.id) === String(partId) || 
+        String(p.orderId) === String(orderId) ||
+        (String(p.orderId).includes(String(assignmentId)) && String(p.id) === String(partId))
+      );
       if (index > -1) {
         parts.splice(index, 1);
       }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ApiService from '../api/apiService';
+import { trackServiceOrderFunnel } from '../utils/clarityTracking';
 import { formatUSDate } from '../utils/date';
 import {
   ArrowLeft, Phone, MapPin, Calendar, Wrench, Clock, User,
@@ -30,6 +31,7 @@ const AssignmentDetailPage = () => {
     setIsUpdating(true);
     try {
       await ApiService.updateAssignmentStatus(id, newStatus);
+      trackServiceOrderFunnel(id, newStatus);
       await load();
     } catch (err: any) {
       alert(err.message || 'Failed to update status');

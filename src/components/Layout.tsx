@@ -43,8 +43,8 @@ const Layout = () => {
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans">
       {/* Sidebar */}
       <aside 
-        className="w-72 flex-shrink-0 flex flex-col text-slate-100 overflow-y-auto" 
-        style={{ background: 'radial-gradient(circle at top left, #0A2647, #001021)' }}
+        className="w-72 flex-shrink-0 flex flex-col overflow-y-auto" 
+        style={{ background: 'radial-gradient(circle at top left, #0A2647, #001021)', color: '#f1f5f9' }}
       >
         {/* Sears KAIros / Sasha 1099 Branding */}
         <div className="p-6 border-b border-blue-900/40 flex flex-col gap-1.5">
@@ -53,8 +53,8 @@ const Layout = () => {
               <Shield className="h-5.5 w-5.5 text-white" />
             </div>
             <div>
-              <h1 className="font-extrabold text-lg tracking-wider text-white">SEARS KAIROS</h1>
-              <p className="text-xs text-blue-400 font-bold uppercase tracking-widest">SASHA 1099 PORTAL</p>
+              <h1 className="font-extrabold text-lg tracking-wider" style={{ color: '#ffffff' }}>SEARS KAIROS</h1>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#60a5fa' }}>SASHA 1099 PORTAL</p>
             </div>
           </div>
         </div>
@@ -66,9 +66,10 @@ const Layout = () => {
             to="/"
             className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 text-[15px] font-semibold rounded-lg transition-all ${
               isActive && location.search === ''
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
-                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                ? 'bg-blue-600 shadow-md shadow-blue-600/10'
+                : 'hover:bg-white/5'
             }`}
+            style={{ color: '#cbd5e1' }}
           >
             <LayoutDashboard className="h-5 w-5 shrink-0" />
             <span>Dashboard</span>
@@ -78,9 +79,8 @@ const Layout = () => {
           <div className="space-y-0.5">
             <div 
               onClick={() => toggleExpand('My Jobs')}
-              className={`flex items-center justify-between px-3 py-2.5 text-[15px] font-semibold rounded-lg text-slate-300 hover:bg-white/5 hover:text-white cursor-pointer ${
-                isActiveRoute('/assignments') ? 'text-white' : ''
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 text-[15px] font-semibold rounded-lg hover:bg-white/5 cursor-pointer`}
+              style={{ color: isActiveRoute('/assignments') ? '#ffffff' : '#cbd5e1' }}
             >
               <div className="flex items-center gap-3">
                 <ClipboardList className="h-5 w-5 shrink-0" />
@@ -94,9 +94,10 @@ const Layout = () => {
                   onClick={() => navigate('/assignments?view=list')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all ${
                     isActiveRoute('/assignments') && (hasQueryParams('view', 'list') || !location.search.includes('view='))
-                      ? 'bg-blue-500/20 text-white font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-blue-500/20 font-semibold'
+                      : 'hover:bg-white/5'
                   }`}
+                  style={{ color: isActiveRoute('/assignments') && (hasQueryParams('view', 'list') || !location.search.includes('view=')) ? '#ffffff' : '#94a3b8' }}
                 >
                   <List className="h-4 w-4" />
                   <span>List View</span>
@@ -105,9 +106,10 @@ const Layout = () => {
                   onClick={() => navigate('/assignments?view=calendar')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all ${
                     isActiveRoute('/assignments') && hasQueryParams('view', 'calendar')
-                      ? 'bg-blue-500/20 text-white font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-blue-500/20 font-semibold'
+                      : 'hover:bg-white/5'
                   }`}
+                  style={{ color: isActiveRoute('/assignments') && hasQueryParams('view', 'calendar') ? '#ffffff' : '#94a3b8' }}
                 >
                   <Calendar className="h-4 w-4" />
                   <span>Weekly Calendar View</span>
@@ -122,8 +124,9 @@ const Layout = () => {
             className={({ isActive }) => `flex items-center justify-between px-3 py-2.5 text-[15px] font-semibold rounded-lg transition-all ${
               isActive
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
-                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                : 'hover:bg-white/5'
             }`}
+            style={({ isActive }) => ({ color: isActive ? '#ffffff' : '#cbd5e1' })}
           >
             <div className="flex items-center gap-3">
               <MessageSquare className="h-5 w-5 shrink-0 text-cyan-400" />
@@ -140,9 +143,10 @@ const Layout = () => {
             to="/available-jobs"
             className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 text-[15px] font-semibold rounded-lg transition-all ${
               isActive
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10'
-                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                ? 'bg-blue-600 shadow-md shadow-blue-600/10'
+                : 'hover:bg-white/5'
             }`}
+            style={({ isActive }) => ({ color: isActive ? '#ffffff' : '#cbd5e1' })}
           >
             <Search className="h-5 w-5 shrink-0" />
             <span>Available Jobs</span>
@@ -152,9 +156,8 @@ const Layout = () => {
           <div className="space-y-0.5">
             <div 
               onClick={() => toggleExpand('Parts & Inventory')}
-              className={`flex items-center justify-between px-3 py-2.5 text-[15px] font-semibold rounded-lg text-slate-300 hover:bg-white/5 hover:text-white cursor-pointer ${
-                isActiveRoute('/parts') ? 'text-white' : ''
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 text-[15px] font-semibold rounded-lg hover:bg-white/5 cursor-pointer`}
+              style={{ color: isActiveRoute('/parts') ? '#ffffff' : '#cbd5e1' }}
             >
               <div className="flex items-center gap-3">
                 <Wrench className="h-5 w-5 shrink-0" />
@@ -168,9 +171,10 @@ const Layout = () => {
                   onClick={() => navigate('/parts?tab=active')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all ${
                     isActiveRoute('/parts') && (hasQueryParams('tab', 'active') || !location.search.includes('tab='))
-                      ? 'bg-blue-500/20 text-white font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-blue-500/20 font-semibold'
+                      : 'hover:bg-white/5'
                   }`}
+                  style={{ color: isActiveRoute('/parts') && (hasQueryParams('tab', 'active') || !location.search.includes('tab=')) ? '#ffffff' : '#94a3b8' }}
                 >
                   <Wrench className="h-4 w-4" />
                   <span>Active Orders</span>
@@ -179,9 +183,10 @@ const Layout = () => {
                   onClick={() => navigate('/parts?tab=history')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all ${
                     isActiveRoute('/parts') && hasQueryParams('tab', 'history')
-                      ? 'bg-blue-500/20 text-white font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-blue-500/20 font-semibold'
+                      : 'hover:bg-white/5'
                   }`}
+                  style={{ color: isActiveRoute('/parts') && hasQueryParams('tab', 'history') ? '#ffffff' : '#94a3b8' }}
                 >
                   <History className="h-4 w-4" />
                   <span>Order History</span>
@@ -194,9 +199,8 @@ const Layout = () => {
           <div className="space-y-0.5">
             <div 
               onClick={() => toggleExpand('Earnings')}
-              className={`flex items-center justify-between px-3 py-2.5 text-[15px] font-semibold rounded-lg text-slate-300 hover:bg-white/5 hover:text-white cursor-pointer ${
-                isActiveRoute('/earnings') ? 'text-white' : ''
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 text-[15px] font-semibold rounded-lg hover:bg-white/5 cursor-pointer`}
+              style={{ color: isActiveRoute('/earnings') ? '#ffffff' : '#cbd5e1' }}
             >
               <div className="flex items-center gap-3">
                 <DollarSign className="h-5 w-5 shrink-0" />
@@ -212,9 +216,10 @@ const Layout = () => {
                     onClick={() => navigate(`/earnings?tab=${tab}`)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left capitalize transition-all ${
                       isActiveRoute('/earnings') && (hasQueryParams('tab', tab) || (!location.search.includes('tab=') && tab === 'today'))
-                        ? 'bg-blue-500/20 text-white font-semibold'
-                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        ? 'bg-blue-500/20 font-semibold'
+                        : 'hover:bg-white/5'
                     }`}
+                    style={{ color: isActiveRoute('/earnings') && (hasQueryParams('tab', tab) || (!location.search.includes('tab=') && tab === 'today')) ? '#ffffff' : '#94a3b8' }}
                   >
                     <TrendingUp className="h-4 w-4" />
                     <span>{tab === 'ytd' ? 'YTD' : tab === 'week' ? 'This Week' : tab}</span>
@@ -228,9 +233,8 @@ const Layout = () => {
           <div className="space-y-0.5">
             <div 
               onClick={() => toggleExpand('Account')}
-              className={`flex items-center justify-between px-3 py-2.5 text-[15px] font-semibold rounded-lg text-slate-300 hover:bg-white/5 hover:text-white cursor-pointer ${
-                isActiveRoute('/account') ? 'text-white' : ''
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 text-[15px] font-semibold rounded-lg hover:bg-white/5 cursor-pointer`}
+              style={{ color: isActiveRoute('/account') ? '#ffffff' : '#cbd5e1' }}
             >
               <div className="flex items-center gap-3">
                 <User className="h-5 w-5 shrink-0" />
@@ -244,9 +248,10 @@ const Layout = () => {
                   onClick={() => navigate('/account?tab=profile')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all ${
                     isActiveRoute('/account') && (hasQueryParams('tab', 'profile') || !location.search.includes('tab='))
-                      ? 'bg-blue-500/20 text-white font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-blue-500/20 font-semibold'
+                      : 'hover:bg-white/5'
                   }`}
+                  style={{ color: isActiveRoute('/account') && (hasQueryParams('tab', 'profile') || !location.search.includes('tab=')) ? '#ffffff' : '#94a3b8' }}
                 >
                   <Settings className="h-4 w-4" />
                   <span>Profile & Settings</span>
@@ -255,9 +260,10 @@ const Layout = () => {
                   onClick={() => navigate('/account?tab=performance')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all ${
                     isActiveRoute('/account') && hasQueryParams('tab', 'performance')
-                      ? 'bg-blue-500/20 text-white font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-blue-500/20 font-semibold'
+                      : 'hover:bg-white/5'
                   }`}
+                  style={{ color: isActiveRoute('/account') && hasQueryParams('tab', 'performance') ? '#ffffff' : '#94a3b8' }}
                 >
                   <Award className="h-4 w-4 animate-pulse text-yellow-400" />
                   <span>Performance</span>
@@ -266,16 +272,18 @@ const Layout = () => {
                   onClick={() => navigate('/account?tab=reviews')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all ${
                     isActiveRoute('/account') && hasQueryParams('tab', 'reviews')
-                      ? 'bg-blue-500/20 text-white font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-blue-500/20 font-semibold'
+                      : 'hover:bg-white/5'
                   }`}
+                  style={{ color: isActiveRoute('/account') && hasQueryParams('tab', 'reviews') ? '#ffffff' : '#94a3b8' }}
                 >
                   <Star className="h-4 w-4" />
                   <span>Customer Reviews</span>
                 </button>
                 <button
                   onClick={() => navigate('/account?tab=reviews&feedback=open')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all text-slate-400 hover:text-white hover:bg-white/5`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all hover:bg-white/5`}
+                  style={{ color: '#94a3b8' }}
                 >
                   <MessageCircle className="h-4 w-4" />
                   <span>Feedback</span>
@@ -293,7 +301,7 @@ const Layout = () => {
           >
             <div className="flex items-center gap-2.5">
               {theme === 'light' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-blue-300" />}
-              <span className="text-xs font-semibold text-slate-300">{theme === 'light' ? 'Light Mode' : 'Dark Mode'}</span>
+              <span className="text-xs font-semibold" style={{ color: '#cbd5e1' }}>{theme === 'light' ? 'Light Mode' : 'Dark Mode'}</span>
             </div>
             <div className={`w-9 h-5 rounded-full relative transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-400'}`}>
               <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -302,20 +310,20 @@ const Layout = () => {
         </div>
 
         {/* User Footer with ELITE Badge */}
-        <div className="mt-auto p-4.5 border-t border-blue-900/40 bg-slate-950/20">
+        <div className="mt-auto p-4.5 border-t border-blue-900/40" style={{ backgroundColor: 'rgba(2, 6, 23, 0.2)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold border border-blue-400/20 shrink-0 text-base shadow-inner">
+            <div className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center font-bold border border-blue-400/20 shrink-0 text-base shadow-inner" style={{ color: '#ffffff' }}>
               {(user?.vendorName || user?.username || 'S').charAt(0).toUpperCase()}
             </div>
             <div className="flex-grow overflow-hidden">
               <div className="flex items-center gap-1.5">
-                <p className="text-sm font-semibold truncate text-white">{user?.vendorName || 'Sasha Tech'}</p>
+                <p className="text-sm font-semibold truncate" style={{ color: '#ffffff' }}>{user?.vendorName || 'Sasha Tech'}</p>
               </div>
               <div className="flex items-center gap-1.5 mt-1">
-                <span className="flex items-center gap-0.5 px-2 py-0.5 bg-yellow-500/25 border border-yellow-500/40 rounded text-[10px] font-extrabold text-yellow-400 tracking-wider">
+                <span className="flex items-center gap-0.5 px-2 py-0.5 bg-yellow-500/25 border border-yellow-500/40 rounded text-[10px] font-extrabold tracking-wider" style={{ color: '#facc15' }}>
                   ELITE
                 </span>
-                <span className="text-xs text-slate-400 truncate">Technician</span>
+                <span className="text-xs truncate" style={{ color: '#94a3b8' }}>Technician</span>
               </div>
             </div>
           </div>

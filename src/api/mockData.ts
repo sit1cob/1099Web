@@ -604,6 +604,15 @@ class MockDataManager {
     return { success: true, data: newJob };
   }
 
+  updateNonShsJob(jobId: string, updates: any) {
+    const idx = this.nonShsJobs.findIndex(j => String(j.id) === String(jobId));
+    if (idx !== -1) {
+      this.nonShsJobs[idx] = { ...this.nonShsJobs[idx], ...updates };
+      return { success: true, data: this.nonShsJobs[idx] };
+    }
+    return { success: false, data: null };
+  }
+
   getCart() { return this.cart; }
   
   addToCart(part: any) {

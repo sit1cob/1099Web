@@ -344,7 +344,12 @@ const EarningsPage = () => {
                     ${activePeriodMetrics.grossPayout.toFixed(2)}
                   </p>
                   <p className="text-blue-200 text-[11px] mt-1">
-                    Invoice summary for period: <span className="text-white font-semibold uppercase">{activeTab}</span>
+                    Invoice summary for period: <span className="text-white font-semibold uppercase">{
+                      activeTab === 'today' ? new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }) :
+                      activeTab === 'week' ? `${new Date(Date.now() - 6 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` :
+                      activeTab === 'month' ? new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) :
+                      `Jan 1 – ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                    }</span>
                   </p>
                 </div>
 

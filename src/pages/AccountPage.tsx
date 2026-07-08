@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../api/apiService';
+import { trackFeedbackSubmitted, trackTechnicianProfile } from '../utils/clarityTracking';
 import { 
   User, Settings, Award, Star, MapPin, Mail, Phone, 
   ShieldCheck, Edit2, Check, Percent, Clock, ThumbsUp, 
@@ -21,6 +22,7 @@ const AccountPage = () => {
   const [profile, setProfile] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dashboardEmail, setDashboardEmail] = useState<string | null>(null);
   
   // Feedback states
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -58,6 +60,7 @@ const AccountPage = () => {
       const profileRes = await ApiService.getVendorProfile();
       if (profileRes.success && profileRes.data) {
         setProfile(profileRes.data);
+        trackTechnicianProfile(profileRes.data);
         setAddressForm({
           addressLine1: profileRes.data.addressLine1 || '',
           city: profileRes.data.city || '',
@@ -72,8 +75,16 @@ const AccountPage = () => {
       const reviewsList = ApiService.getUser() ? ApiService.getUser().reviews : null;
       // In our mock service we have reviews returned from dashboard feed or mockDb
       const feedRes = await ApiService.getDashboardV2('2026-05-01', '2026-05-31');
-      if (feedRes.success && feedRes.data?.data?.recent_feedback) {
-        setReviews(feedRes.data.data.recent_feedback);
+      const dashData: any = feedRes.success ? (feedRes.data?.data || feedRes.data) : null;
+      if (dashData?.recent_feedback) {
+        setReviews(dashData.recent_feedback);
+      }
+      // Extract technician_email from dashboard (primary email source, same as mobile app)
+      const techEmail = typeof dashData?.technician_email === 'string' && dashData.technician_email.trim().length > 0
+        ? dashData.technician_email.trim()
+        : null;
+      if (techEmail) {
+        setDashboardEmail(techEmail);
       }
     } catch (e) {
       console.error('Failed to load profile details', e);
@@ -145,6 +156,7 @@ const AccountPage = () => {
         answers,
       });
       if (res.success) {
+        trackFeedbackSubmitted();
         alert('Thank you for your feedback!');
         setShowFeedbackModal(false);
       } else {
@@ -309,7 +321,7 @@ const AccountPage = () => {
                         <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                         <input
                           type="email"
-                          defaultValue={profile?.email || 'sasha.tech@searskairos.ai'}
+                          defaultValue={dashboardEmail || profile?.email || ''}
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-10 pr-3 py-2 text-sm text-gray-700 focus:outline-none"
                         />
                       </div>
