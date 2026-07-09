@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  BASE_URL: 'https://app1099-api.searskairos.ai',
+  BASE_URL: 'https://pros.shs.com',
   TIMEOUT: 30000,
 };
 

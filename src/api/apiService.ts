@@ -573,7 +573,7 @@ class ApiService {
 
       const token = this.getToken();
       const response = await axios.patch(
-        `https://app1099-api.searskairos.ai/api/v3/assignments/${assignmentId}`,
+        `${API_CONFIG.BASE_URL}/api/v3/assignments/${assignmentId}`,
         body,
         {
           headers: {
@@ -611,7 +611,7 @@ class ApiService {
     try {
       const token = this.getToken();
       const response = await axios.patch(
-        `https://app1099-api.searskairos.ai/api/v3/assignments/${assignmentId}`,
+        `${API_CONFIG.BASE_URL}/api/v3/assignments/${assignmentId}`,
         payload,
         {
           headers: {
@@ -633,7 +633,7 @@ class ApiService {
   async getServiceUpdateAttemptDescriptions(): Promise<any> {
     try {
       const token = this.getToken()?.trim().replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, '') || '';
-      const response = await axios.get('https://app1099-api.searskairos.ai/api/service-update-attempt-descriptions', {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/service-update-attempt-descriptions`, {
         headers: { Accept: 'application/json', Authorization: token ? `Bearer ${token}` : '' },
       });
       return response.data;
