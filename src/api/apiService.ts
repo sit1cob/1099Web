@@ -996,7 +996,7 @@ class ApiService {
     try {
       const trimmed = (partNo || '').trim();
       if (!trimmed) throw new Error('Part number is required');
-      const response = await this.api.get('/api/parts/search', { params: { partNo: trimmed } });
+      const response = await this.v2Api.get('/api/assignments/parts/item-search', { params: { partNo: trimmed } });
       return response.data;
     } catch (error) {
       console.warn('searchPartsByPartNo failed, returning mock part search results.');
@@ -1060,6 +1060,16 @@ class ApiService {
         });
       });
       return { success: true, message: 'Draft order created (mock)' };
+    }
+  }
+
+  async updateOrder(assignmentId: number, orderId: string, items: Array<{ itemId: string; partNo: string; quantity: number; productGroupId: string }>): Promise<any> {
+    try {
+      const response = await this.api.put(`/api/assignments/${assignmentId}/orders/${orderId}`, { items });
+      return response.data;
+    } catch (error) {
+      console.warn('updateOrder failed, simulating mock order update.');
+      return { success: true, message: 'Order updated (mock)' };
     }
   }
 
@@ -1239,18 +1249,14 @@ class ApiService {
 
   async checkPartsAvailability(assignmentId: string | number, parts: Array<{ itemId: string; partNo: string; productGroupId: string; quantity: number }>): Promise<any> {
     try {
-      const token = this.getToken();
-      const response = await axios.post(`https://pros.shs.com/api/assignments/${assignmentId}/models/parts/available`, { parts }, {
-        headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-      });
+      const response = await this.v2Api.post(`/api/assignments/${assignmentId}/models/parts/available`, { parts });
       return response.data;
     } catch (error) {
-      console.warn('checkPartsAvailability failed, using mock availability check.');
-      // Simulates CLUTCH OIL '13516' as out of stock (available: false)
+      console.warn('checkPartsAvailability failed, using mock availability check.', error);
       const availabilityResult = parts.map(p => ({
         itemId: p.itemId,
         partNo: p.partNo,
-        available: p.partNo !== '13516' // CLUTCH OIL is unavailable
+        available: p.partNo !== '13516'
       }));
       return {
         success: true,

@@ -177,6 +177,8 @@ const AssignmentsPage = () => {
     tab: 'model', // model or number
     query: '',
     results: [] as any[],
+    modelResults: [] as any[],
+    selectedModel: null as any,
     searching: false
   });
   const [cart, setCart] = useState<any[]>([]);
@@ -240,7 +242,8 @@ const AssignmentsPage = () => {
         setTrackingLoading(false);
         return;
       }
-      const res = await ApiService.getStatusByTrackingNo(selectedId, { trackingNumber: trackingNo });
+      const assignmentNumId = Number(activeJobDetails?.id) || Number(String(selectedId).replace(/\D/g, '')) || 0;
+      const res = await ApiService.getStatusByTrackingNo(assignmentNumId, { trackingNumber: trackingNo });
       setTrackingData(res?.data || res);
     } catch (e: any) {
       console.error(e);
@@ -692,25 +695,52 @@ const AssignmentsPage = () => {
       let res: any;
       if (partsSearch.tab === 'model') {
         res = await ApiService.searchModels(assignmentNumId, partsSearch.query);
-        if (res.success && res.data && res.data[0]) {
-          // get parts for model
-          const partsRes = await ApiService.getModelParts(assignmentNumId, res.data[0].modelId);
-          if (partsRes.success) {
-            setPartsSearch(prev => ({ ...prev, results: partsRes.data || [], searching: false }));
-          }
+        const models = res?.data?.models || (Array.isArray(res?.data) ? res.data : []);
+        if (res.success && models.length > 0) {
+          setPartsSearch(prev => ({ ...prev, modelResults: models, selectedModel: null, results: [], searching: false }));
         } else {
-          setPartsSearch(prev => ({ ...prev, results: [], searching: false }));
+          setPartsSearch(prev => ({ ...prev, modelResults: [], selectedModel: null, results: [], searching: false }));
         }
       } else {
         res = await ApiService.searchPartsByPartNo(partsSearch.query);
-        if (res.success) {
-          setPartsSearch(prev => ({ ...prev, results: res.data || [], searching: false }));
-        } else {
-          setPartsSearch(prev => ({ ...prev, results: [], searching: false }));
-        }
+        const rawItems = res?.data?.items || (Array.isArray(res?.data) ? res.data : []);
+        const parts = rawItems.map((item: any) => ({
+          itemId: item.itemId || item.partNo,
+          partNo: item.partNo,
+          name: item.itemDescription || item.name || '',
+          description: item.productGroupName || item.description || '',
+          price: parseFloat(item.itemSellingPrice) || item.price || 0,
+          available: item.itemAvailabilityStatus ? item.itemAvailabilityStatus === 'PIA' : item.available !== false,
+          imageUrl: item.itemImageUrl || '',
+        }));
+        setPartsSearch(prev => ({ ...prev, modelResults: [], selectedModel: null, results: parts, searching: false }));
       }
     } catch (e) {
       console.error(e);
+      setPartsSearch(prev => ({ ...prev, results: [], searching: false }));
+    }
+  };
+
+  const handleSelectModel = async (model: any) => {
+    setPartsSearch(prev => ({ ...prev, selectedModel: model, searching: true }));
+    const assignmentNumId = Number(activeJobDetails?.id) || Number(String(selectedId).replace(/\D/g, '')) || 0;
+    try {
+      const partsRes = await ApiService.getModelParts(assignmentNumId, model.modelId);
+      const rawItems = partsRes?.data?.items || partsRes?.data?.parts || (Array.isArray(partsRes?.data) ? partsRes.data : []);
+      // Map API fields to UI fields
+      const parts = rawItems.map((item: any) => ({
+        itemId: item.itemId,
+        partNo: item.partNo,
+        name: item.itemDescription || item.name || '',
+        description: item.productGroupName || item.description || '',
+        price: parseFloat(item.itemSellingPrice) || item.price || 0,
+        available: item.itemAvailabilityStatus === 'PIA',
+        productGroupId: item.productGroupId || '',
+        imageUrl: item.itemImageUrl || '',
+      }));
+      setPartsSearch(prev => ({ ...prev, results: parts, searching: false }));
+    } catch (e) {
+      console.error('getModelParts failed:', e);
       setPartsSearch(prev => ({ ...prev, results: [], searching: false }));
     }
   };
@@ -723,6 +753,9 @@ const AssignmentsPage = () => {
       }
       return [...prev, { ...part, quantity: 1 }];
     });
+    setAvailabilityChecked(false);
+    setPartsAvailability({});
+    setPartsError(null);
   };
 
   const handleUpdateCartQty = (partNo: string, amount: number) => {
@@ -732,6 +765,9 @@ const AssignmentsPage = () => {
       }
       return item;
     }));
+    setAvailabilityChecked(false);
+    setPartsAvailability({});
+    setPartsError(null);
   };
 
   const handleRemoveFromCart = (partNo: string) => {
@@ -739,19 +775,110 @@ const AssignmentsPage = () => {
   };
 
   // Parts stock/availability check
-  const handleCheckAvailability = () => {
-    const hasClutchOil = cart.some(item => item.name === 'CLUTCH OIL' || item.partNo === '13516');
-    if (hasClutchOil) {
-      setPartsError(
-        '⚠️ Error: CLUTCH OIL (Part #13516) is out of stock in the regional warehouse. Estimated back-order delay is 5 days. Rescheduling job is required.'
-      );
-    } else {
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [partsAvailability, setPartsAvailability] = useState<Record<string, boolean>>({});
+
+  // Recompute availabilityChecked when cart changes (e.g., item removed)
+  useEffect(() => {
+    if (Object.keys(partsAvailability).length === 0) return;
+    const allChecked = cart.every(item => item.partNo in partsAvailability);
+    const allAvailable = cart.every(item => partsAvailability[item.partNo] === true);
+    if (allChecked && allAvailable) {
+      setAvailabilityChecked(true);
       setPartsError(null);
-      alert('Parts availability check passed! All selected parts are in stock in the dispatch warehouse.');
+    } else if (allChecked) {
+      const unavailableCount = cart.filter(item => !partsAvailability[item.partNo]).length;
+      if (unavailableCount > 0) {
+        setPartsError(`${unavailableCount} part${unavailableCount > 1 ? 's are' : ' is'} unavailable and will not be included in your order.`);
+      }
+      setAvailabilityChecked(true);
+    }
+  }, [cart, partsAvailability]);
+
+  const handleCheckAvailability = async () => {
+    if (cart.length === 0) return;
+    setCheckingAvailability(true);
+    setPartsError(null);
+    const assignmentNumId = Number(activeJobDetails?.id) || Number(String(selectedId).replace(/\D/g, '')) || 0;
+    try {
+      const partsPayload = cart.map(item => ({
+        itemId: item.itemId || '',
+        partNo: item.partNo,
+        productGroupId: item.productGroupId || '',
+        quantity: item.quantity
+      }));
+      const res = await ApiService.checkPartsAvailability(assignmentNumId, partsPayload);
+      console.log('Availability API response:', JSON.stringify(res));
+      const availableParts = Array.isArray(res?.data?.availableParts) ? res.data.availableParts : Array.isArray(res?.data?.parts) ? res.data.parts : [];
+      const availablePartNos = new Set(availableParts.map((p: any) => p.partNo || p.itemId));
+      const availMap: Record<string, boolean> = {};
+      cart.forEach(item => {
+        availMap[item.partNo] = availablePartNos.has(item.partNo);
+      });
+      setPartsAvailability(availMap);
+      const unavailableCount = cart.filter(item => !availMap[item.partNo]).length;
+      if (unavailableCount > 0) {
+        setPartsError(`${unavailableCount} part${unavailableCount > 1 ? 's are' : ' is'} unavailable and will not be included in your order.`);
+        setAvailabilityChecked(true);
+      } else {
+        setAvailabilityChecked(true);
+        setPartsError(null);
+      }
+    } catch (e) {
+      console.error('Availability check failed:', e);
+      setPartsError('Failed to check parts availability. Please try again.');
+      setAvailabilityChecked(false);
+    } finally {
+      setCheckingAvailability(false);
     }
   };
 
-  const handleAddPartsToJob = async () => {
+  // Shipping address confirmation state
+  const [showAddressConfirm, setShowAddressConfirm] = useState(false);
+  const [shippingAddress, setShippingAddress] = useState({ addressLine1: '', city: '', state: '', zipCode: '' });
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressForm, setAddressForm] = useState({ addressLine1: '', city: '', state: '', zipCode: '' });
+  const [loadingAddress, setLoadingAddress] = useState(false);
+
+  const handleSubmitPartsClick = async () => {
+    // Load vendor address and show confirmation
+    setLoadingAddress(true);
+    try {
+      const resp: any = await ApiService.getVendorProfile();
+      const vendor = resp?.data;
+      const addr = {
+        addressLine1: vendor?.addressLine1 || '',
+        city: vendor?.city || '',
+        state: vendor?.state || '',
+        zipCode: vendor?.zipCode || vendor?.zip || '',
+      };
+      setShippingAddress(addr);
+      setAddressForm(addr);
+    } catch (e) {
+      console.error('Failed to load vendor address:', e);
+    }
+    setLoadingAddress(false);
+    setShowAddressConfirm(true);
+  };
+
+  const handleSaveAddress = async () => {
+    try {
+      await ApiService.updateVendorAddress({
+        addressLine1: addressForm.addressLine1,
+        city: addressForm.city,
+        state: addressForm.state,
+        countryCode: 'US',
+        zipCode: addressForm.zipCode,
+      });
+      setShippingAddress({ ...addressForm });
+      setEditingAddress(false);
+    } catch (e) {
+      console.error('Failed to update address:', e);
+    }
+  };
+
+  const handleConfirmAndProceed = async () => {
     if (!selectedId) return;
     try {
       for (const item of cart) {
@@ -766,22 +893,23 @@ const AssignmentsPage = () => {
         });
       }
       trackPartsOrdered(selectedId);
-      // If clutch oil (partsError active), mark job as part_order and launch reschedule
+
       if (partsError) {
         await ApiService.updateAssignmentStatus(selectedId, 'waiting_on_parts');
         trackStatusChange(selectedId, 'waiting_on_parts');
+        setShowAddressConfirm(false);
         setShowPartsModal(false);
         setCart([]);
         setPartsError(null);
-        // Prompt reschedule
         setShowRescheduleWizard(true);
         setRescheduleForm(prev => ({
           ...prev,
           step: 1,
           reason: 'parts_delayed',
-          notes: 'CLUTCH OIL #13516 on backorder. Need to return when part arrives.'
+          notes: 'Parts on backorder. Need to return when part arrives.'
         }));
       } else {
+        setShowAddressConfirm(false);
         setShowPartsModal(false);
         setCart([]);
         loadData();
@@ -789,6 +917,10 @@ const AssignmentsPage = () => {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleAddPartsToJob = async () => {
+    handleSubmitPartsClick();
   };
 
   // Complete job (Signature pad drawing functions)
@@ -2479,7 +2611,7 @@ const AssignmentsPage = () => {
                 </h3>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setPartsSearch(prev => ({ ...prev, tab: 'model', query: 'VA6013' }))}
+                    onClick={() => setPartsSearch(prev => ({ ...prev, tab: 'model', query: '', results: [], modelResults: [], selectedModel: null }))}
                     className={`px-3 py-1 text-[10px] font-bold uppercase rounded border transition-colors cursor-pointer ${
                       partsSearch.tab === 'model' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-transparent border-gray-200 text-gray-500'
                     }`}
@@ -2487,7 +2619,7 @@ const AssignmentsPage = () => {
                     Search by Model
                   </button>
                   <button
-                    onClick={() => setPartsSearch(prev => ({ ...prev, tab: 'number', query: '13516' }))}
+                    onClick={() => setPartsSearch(prev => ({ ...prev, tab: 'number', query: '', results: [], modelResults: [], selectedModel: null }))}
                     className={`px-3 py-1 text-[10px] font-bold uppercase rounded border transition-colors cursor-pointer ${
                       partsSearch.tab === 'number' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-transparent border-gray-200 text-gray-500'
                     }`}
@@ -2503,7 +2635,7 @@ const AssignmentsPage = () => {
                   type="text"
                   placeholder={partsSearch.tab === 'model' ? 'Enter Model (e.g. VA6013)...' : 'Enter Part Number (e.g. 13516)...'}
                   value={partsSearch.query}
-                  onChange={(e) => setPartsSearch({ ...partsSearch, query: e.target.value })}
+                  onChange={(e) => { const val = e.target.value; setPartsSearch(prev => ({ ...prev, query: val })); }}
                   className="flex-grow bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500 font-mono"
                   onKeyDown={(e) => e.key === 'Enter' && handlePartsSearch()}
                 />
@@ -2522,38 +2654,79 @@ const AssignmentsPage = () => {
                   <div className="flex items-center justify-center py-20">
                     <Loader2 className="h-7 w-7 animate-spin text-blue-400" />
                   </div>
-                ) : partsSearch.results.length === 0 ? (
+                ) : partsSearch.tab === 'model' && !partsSearch.selectedModel && partsSearch.modelResults.length > 0 ? (
+                  /* Step 1: Show found models */
+                  <div className="space-y-2.5">
+                    <p className="text-[11px] text-gray-500 font-semibold">Showing {partsSearch.modelResults.length} compatible model{partsSearch.modelResults.length > 1 ? 's' : ''}</p>
+                    {partsSearch.modelResults.map((model: any) => (
+                      <div
+                        key={model.modelId}
+                        className="p-4 bg-white border border-gray-200 rounded-xl flex items-center justify-between gap-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gray-100 border border-gray-200 rounded-lg flex items-center justify-center">
+                            <Wrench className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-extrabold text-gray-900">{model.modelNo}</p>
+                            <p className="text-[11px] text-gray-500">{model.modelDescription || model.productTypeName || ''}</p>
+                            <span className="inline-block mt-1 px-2 py-0.5 bg-blue-500 text-white text-[9px] font-bold rounded-full">{model.brand}</span>
+                            <span className="text-[10px] text-gray-400 ml-2">{model.productTypeName || model.applianceType || ''}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleSelectModel(model)}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          Select Model
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : partsSearch.results.length === 0 && !partsSearch.selectedModel ? (
                   <div className="text-center py-20 text-gray-400 text-xs italic bg-gray-50/30 rounded-xl border border-gray-200">
                     Type a query (e.g. model <span className="font-mono text-blue-400">VA6013</span> or part <span className="font-mono text-blue-400">13516</span>) and press Search.
                   </div>
+                ) : partsSearch.results.length === 0 && partsSearch.selectedModel ? (
+                  <div className="text-center py-20 text-gray-400 text-xs italic bg-gray-50/30 rounded-xl border border-gray-200">
+                    No parts found for model <span className="font-mono text-blue-400">{partsSearch.selectedModel.modelNo}</span>.
+                  </div>
                 ) : (
-                  partsSearch.results.map((part) => (
-                    <div 
-                      key={part.itemId || part.partNo}
-                      className="p-3 bg-white border border-gray-200 rounded-xl flex items-center justify-between gap-4"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-extrabold text-gray-900">{part.name}</span>
-                          <span className="text-[10px] text-gray-400 font-mono">Part #{part.partNo}</span>
-                          {!part.available && (
-                            <span className="px-1.5 py-0.2 bg-rose-500/20 border border-rose-500/40 rounded text-[8px] font-bold text-rose-400 tracking-wider">
-                              OUT OF STOCK
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-0.5">{part.description}</p>
-                        <p className="text-xs font-semibold text-blue-400 mt-1">${part.price.toFixed(2)}</p>
+                  /* Step 2: Show parts for selected model */
+                  <div className="space-y-2.5">
+                    {partsSearch.selectedModel && (
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] text-gray-500 font-semibold">Parts for model: <span className="font-mono text-blue-400">{partsSearch.selectedModel.modelNo}</span></p>
+                        <button
+                          onClick={() => setPartsSearch(prev => ({ ...prev, selectedModel: null, results: [] }))}
+                          className="text-[10px] text-blue-500 hover:text-blue-400 font-bold cursor-pointer"
+                        >
+                          ← Back to Models
+                        </button>
                       </div>
-
-                      <button
-                        onClick={() => handleAddToCart(part)}
-                        className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/30 hover:border-blue-500 rounded-lg text-[10px] font-bold text-blue-400 transition-colors cursor-pointer"
+                    )}
+                    {partsSearch.results.map((part, idx) => (
+                      <div 
+                        key={`${part.itemId || part.partNo}-${idx}`}
+                        className="p-3 bg-white border border-gray-200 rounded-xl flex items-center justify-between gap-4"
                       >
-                        Add to Cart
-                      </button>
-                    </div>
-                  ))
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-extrabold text-gray-900">{part.name}</span>
+                            <span className="text-[10px] text-gray-400 font-mono">Part #{part.partNo}</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-0.5">{part.description}</p>
+                        </div>
+
+                        <button
+                          onClick={() => handleAddToCart(part)}
+                          className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/30 hover:border-blue-500 rounded-lg text-[10px] font-bold text-blue-400 transition-colors cursor-pointer"
+                        >
+                          Add to Cart
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -2572,43 +2745,69 @@ const AssignmentsPage = () => {
                 {cart.length === 0 ? (
                   <p className="text-[11px] text-gray-400 italic text-center py-10">Cart is empty</p>
                 ) : (
-                  cart.map(item => (
-                    <div 
-                      key={item.partNo}
-                      className="p-3 bg-gray-50 border border-gray-200 rounded-xl flex flex-col gap-2 relative"
-                    >
-                      <button 
-                        onClick={() => handleRemoveFromCart(item.partNo)}
-                        className="absolute right-2 top-2 text-gray-400 hover:text-rose-400 cursor-pointer"
+                  cart.map(item => {
+                    const isChecked = item.partNo in partsAvailability;
+                    const isAvailable = partsAvailability[item.partNo];
+                    return (
+                      <div 
+                        key={item.partNo}
+                        className={`p-3 rounded-xl flex flex-col gap-2 relative border ${
+                          isChecked && !isAvailable 
+                            ? 'bg-rose-50 border-rose-300' 
+                            : isChecked && isAvailable 
+                              ? 'bg-green-50 border-green-300' 
+                              : 'bg-gray-50 border-gray-200'
+                        }`}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                      <div>
-                        <p className="text-[11px] font-bold text-gray-900 truncate pr-5">{item.name}</p>
-                        <p className="text-[9px] text-gray-400 font-mono mt-0.2">Part #{item.partNo}</p>
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[10px] text-blue-400 font-bold">${(item.price * item.quantity).toFixed(2)}</span>
-                        
-                        {/* Qty selectors */}
-                        <div className="flex items-center border border-gray-200 rounded bg-white overflow-hidden">
-                          <button 
-                            onClick={() => handleUpdateCartQty(item.partNo, -1)}
-                            className="px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-bold"
-                          >
-                            -
-                          </button>
-                          <span className="px-2.5 text-[10px] font-bold text-gray-900">{item.quantity}</span>
-                          <button 
-                            onClick={() => handleUpdateCartQty(item.partNo, 1)}
-                            className="px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-bold"
-                          >
-                            +
-                          </button>
+                        <button 
+                          onClick={() => handleRemoveFromCart(item.partNo)}
+                          className="absolute right-2 top-2 text-gray-400 hover:text-rose-400 cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                        <div>
+                          <p className="text-[11px] font-bold text-gray-900 truncate pr-5">{item.name}</p>
+                          <p className="text-[9px] text-gray-400 font-mono mt-0.2">Part #{item.partNo}</p>
                         </div>
+                        {isChecked && (
+                          <div>
+                            {isAvailable ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 border border-green-300 rounded-full text-[9px] font-bold text-green-700">
+                                ✓ Available
+                              </span>
+                            ) : (
+                              <>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-100 border border-rose-300 rounded-full text-[9px] font-bold text-rose-600">
+                                  ✕ Unavailable
+                                </span>
+                                <p className="text-[9px] text-rose-500 mt-1">This part is currently out of stock and cannot be ordered.</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        {(!isChecked || isAvailable) && (
+                          <div className="flex items-center justify-end mt-1">
+                            {/* Qty selectors */}
+                            <div className="flex items-center border border-gray-200 rounded bg-white overflow-hidden">
+                              <button 
+                                onClick={() => handleUpdateCartQty(item.partNo, -1)}
+                                className="px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-bold"
+                              >
+                                -
+                              </button>
+                              <span className="px-2.5 text-[10px] font-bold text-gray-900">{item.quantity}</span>
+                              <button 
+                                onClick={() => handleUpdateCartQty(item.partNo, 1)}
+                                className="px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-bold"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
@@ -2622,8 +2821,8 @@ const AssignmentsPage = () => {
                 )}
 
                 <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
-                  <span>Cart Items Total</span>
-                  <span className="text-gray-900">${cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}</span>
+                  <span>Cart Items</span>
+                  <span className="text-gray-900">{cart.reduce((sum, item) => sum + item.quantity, 0)} item{cart.reduce((sum, item) => sum + item.quantity, 0) !== 1 ? 's' : ''}</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -2632,11 +2831,11 @@ const AssignmentsPage = () => {
                     disabled={cart.length === 0}
                     className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 text-[10px] font-extrabold text-gray-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                   >
-                    Check Stock
+                    {checkingAvailability ? 'Checking...' : 'Check Parts Availability'}
                   </button>
                   <button
                     onClick={handleAddPartsToJob}
-                    disabled={cart.length === 0}
+                    disabled={cart.length === 0 || !availabilityChecked}
                     className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {partsError ? 'Order & Reschedule' : 'Submit Parts'}
@@ -2657,6 +2856,124 @@ const AssignmentsPage = () => {
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Shipping Address Confirmation Modal */}
+      {showAddressConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            {/* Header */}
+            <div className="bg-blue-900 px-6 py-4">
+              <h3 className="text-white font-bold text-lg">Shipping Address Confirmation</h3>
+              <p className="text-blue-200 text-xs mt-0.5">Parts will be delivered to this address</p>
+            </div>
+
+            {/* Address Content */}
+            <div className="p-6">
+              {loadingAddress ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                </div>
+              ) : editingAddress ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">Address Line 1</label>
+                    <input
+                      type="text"
+                      value={addressForm.addressLine1}
+                      onChange={(e) => setAddressForm(prev => ({ ...prev, addressLine1: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-1">City</label>
+                      <input
+                        type="text"
+                        value={addressForm.city}
+                        onChange={(e) => setAddressForm(prev => ({ ...prev, city: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-1">State</label>
+                      <input
+                        type="text"
+                        value={addressForm.state}
+                        onChange={(e) => setAddressForm(prev => ({ ...prev, state: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-1">Zip Code</label>
+                      <input
+                        type="text"
+                        value={addressForm.zipCode}
+                        onChange={(e) => setAddressForm(prev => ({ ...prev, zipCode: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={handleSaveAddress}
+                      className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg"
+                    >
+                      Save Address
+                    </button>
+                    <button
+                      onClick={() => { setAddressForm({ ...shippingAddress }); setEditingAddress(false); }}
+                      className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg border border-gray-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border border-yellow-300 bg-yellow-50 rounded-xl p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <MapPin className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700 mb-1">Shipping Address</p>
+                        <p className="text-sm font-bold text-gray-900">{shippingAddress.addressLine1}</p>
+                        <p className="text-sm text-gray-700">{shippingAddress.city}, {shippingAddress.state} {shippingAddress.zipCode}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setEditingAddress(true)}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-500 border border-blue-200 rounded-lg px-3 py-1"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-2 ml-11">Parts will be delivered to this address.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Buttons */}
+            {!editingAddress && (
+              <div className="px-6 pb-6 space-y-2">
+                <button
+                  onClick={handleConfirmAndProceed}
+                  disabled={!shippingAddress.addressLine1}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50"
+                >
+                  Confirm and Proceed
+                </button>
+                <button
+                  onClick={() => setShowAddressConfirm(false)}
+                  className="w-full py-2 text-center text-xs font-bold text-gray-400 hover:text-gray-600"
+                >
+                  Back to Cart
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
