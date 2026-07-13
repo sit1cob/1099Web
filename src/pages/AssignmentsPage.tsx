@@ -3638,7 +3638,9 @@ const PartsListSection = ({
                 return (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="p-3.5">
-                      <p className="font-bold text-gray-900">{p.partNumber}</p>
+                      {p.itemDescription && <p className="font-bold text-gray-900">{p.itemDescription}</p>}
+                      <p className={`${p.itemDescription ? 'text-[10px] text-gray-500 mt-0.5' : 'font-bold text-gray-900'}`}>Part #{p.partNumber}</p>
+                      {p.brand && <p className="text-[10px] text-gray-400">{p.brand}</p>}
                     </td>
                     <td className="p-3.5 font-bold text-gray-600">{p.quantity}</td>
                     <td className="p-3.5">
