@@ -3634,12 +3634,14 @@ const PartsListSection = ({
                   : p.status === 'Shipped' 
                     ? 'bg-blue-500/10 text-blue-450 border-blue-500/20' 
                     : 'bg-gray-100 text-gray-500 border-gray-200';
+                const cleanDesc = p.itemDescription ? p.itemDescription.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
+                const shortDesc = cleanDesc.length > 80 ? cleanDesc.slice(0, 80) + '…' : cleanDesc;
 
                 return (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="p-3.5">
-                      {p.itemDescription && <p className="font-bold text-gray-900">{p.itemDescription}</p>}
-                      <p className={`${p.itemDescription ? 'text-[10px] text-gray-500 mt-0.5' : 'font-bold text-gray-900'}`}>Part #{p.partNumber}</p>
+                      {shortDesc && <p className="font-bold text-gray-900">{shortDesc}</p>}
+                      <p className={`${shortDesc ? 'text-[10px] text-gray-500 mt-0.5' : 'font-bold text-gray-900'}`}>Part #{p.partNumber}</p>
                       {p.brand && <p className="text-[10px] text-gray-400">{p.brand}</p>}
                     </td>
                     <td className="p-3.5 font-bold text-gray-600">{p.quantity}</td>
