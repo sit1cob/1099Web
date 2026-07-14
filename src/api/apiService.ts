@@ -227,7 +227,15 @@ class ApiService {
   // ── Feedback ──
   async getFeedbackConfig(): Promise<any> {
     try {
-      const response = await this.api.get('/api/feedback/config', { timeout: 5000 });
+      const token = this.getToken();
+      const response = await axios.get('https://app1099-api.searskairos.ai/api/feedback/config', {
+        headers: {
+          Authorization: token ? (token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`) : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        timeout: 5000,
+      });
       return response.data;
     } catch (error) {
       console.warn('getFeedbackConfig failed, using mock fallback.');
@@ -249,7 +257,14 @@ class ApiService {
 
   async submitFeedback(data: { metadata: { appVersion: string; deviceModel: string; osVersion: string; timestamp: string }; answers: { questionId: string; answer: any }[] }): Promise<any> {
     try {
-      const response = await this.api.post('/api/feedback/submit', data);
+      const token = this.getToken();
+      const response = await axios.post('https://app1099-api.searskairos.ai/api/feedback/submit', data, {
+        headers: {
+          Authorization: token ? (token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`) : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
       return response.data;
     } catch (error) {
       console.warn('submitFeedback failed, using mock fallback.');

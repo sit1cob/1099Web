@@ -124,7 +124,8 @@ const AccountPage = () => {
       try {
         const res = await ApiService.getFeedbackConfig();
         if (res.success) {
-          setFeedbackConfig(res.data);
+          const config = res.data?.questions ? res.data : res.data?.data || res.data;
+          setFeedbackConfig(config);
         }
       } catch (e) {
         console.error('Failed to load feedback config', e);
@@ -783,6 +784,11 @@ const AccountPage = () => {
               {feedbackLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                </div>
+              ) : !feedbackConfig?.questions?.length ? (
+                <div className="text-center py-12 text-gray-400 text-sm">
+                  <p className="font-bold text-gray-600 mb-1">Unable to load feedback questions</p>
+                  <p className="text-xs">Please try again later.</p>
                 </div>
               ) : feedbackConfig?.questions?.map((q: any) => (
                 <div key={q.id} className="bg-gray-50 border border-gray-200 rounded-xl p-5 space-y-3">
