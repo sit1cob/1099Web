@@ -593,7 +593,26 @@ const AssignmentsPage = () => {
       await ApiService.updateAssignmentStatus(selectedId, 'arrived');
       trackMarkArrived(selectedId);
       setShowArrivedConfirm(false);
-      loadData();
+      await loadData();
+
+      // Check if model & serial already exist — if not, force appliance form
+      const res = await ApiService.getAssignmentDetails(String(selectedId));
+      const piu = res?.data?.job?.productInfoUpdate || {};
+      const hasModel = !!(piu.modelNumber || res?.data?.job?.applianceModel);
+      const hasSerial = !!(piu.serialNumber || res?.data?.job?.applianceSerial);
+      const hasBrand = !!(piu.brand || res?.data?.job?.manufacturerBrand || res?.data?.applianceBrandname);
+
+      if (!hasModel || !hasSerial || !hasBrand) {
+        // Pre-fill form with any existing partial data
+        setApplianceForm(prev => ({
+          ...prev,
+          brand: piu.brand || res?.data?.job?.manufacturerBrand || '',
+          model: piu.modelNumber || res?.data?.job?.applianceModel || '',
+          serial: piu.serialNumber || res?.data?.job?.applianceSerial || '',
+          issue: piu.issue || res?.data?.job?.serviceDescription || '',
+        }));
+        setShowApplianceDrawer(true);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -617,10 +636,8 @@ const AssignmentsPage = () => {
     e.preventDefault();
     if (!selectedId) return;
     try {
-      const jobId = activeJobDetails?.job?.id || activeJobDetails?.id || selectedId;
-      const productLine = activeJobDetails?.job?.applianceCode || activeJobDetails?.job?.applianceType || '';
-      await ApiService.updateProductInfo(jobId, {
-        productLine,
+      const assignmentNumId = Number(activeJobDetails?.id) || Number(String(selectedId).replace(/\D/g, '')) || 0;
+      await ApiService.updateProductInfo(assignmentNumId, {
         brand: applianceForm.brand,
         modelNumber: applianceForm.model,
         serialNumber: applianceForm.serial,

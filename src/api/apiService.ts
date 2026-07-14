@@ -499,7 +499,14 @@ class ApiService {
 
   async getAssignmentDetails(assignmentId: string): Promise<any> {
     try {
-      const response = await this.api.get(`/api/assignments/${assignmentId}`);
+      const token = this.getToken();
+      const response = await axios.get(`https://app1099-api.searskairos.ai/api/assignments/${assignmentId}`, {
+        headers: {
+          Authorization: token ? (token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`) : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
       return response.data;
     } catch (error) {
       console.warn(`getAssignmentDetails for ${assignmentId} failed, using mock fallback.`);
@@ -723,9 +730,26 @@ class ApiService {
     }
   }
 
-  async updateProductInfo(jobId: string | number, body: { productLine: string; brand: string; modelNumber: string; serialNumber: string; issue: string; imageUrl?: string }): Promise<any> {
+  async updateProductInfo(assignmentId: string | number, body: { productLine?: string; brand: string; modelNumber: string; serialNumber: string; issue: string; imageUrl?: string }): Promise<any> {
     try {
-      const response = await this.api.patch(`/api/jobs/${jobId}/product-info-update`, body);
+      const token = this.getToken();
+      const response = await axios.patch(
+        `https://app1099-api.searskairos.ai/api/v3/assignments/${assignmentId}`,
+        {
+          applianceBrandname: body.brand,
+          applianceModel: body.modelNumber,
+          applianceSerial: body.serialNumber,
+          applianceIssue: body.issue,
+          status: 'arrived',
+        },
+        {
+          headers: {
+            Authorization: token ? (token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`) : '',
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        }
+      );
       return { success: true, data: response.data };
     } catch (error) {
       console.warn('updateProductInfo failed, using mock fallback.');
