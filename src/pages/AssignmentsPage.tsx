@@ -858,6 +858,8 @@ const AssignmentsPage = () => {
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressForm, setAddressForm] = useState({ addressLine1: '', city: '', state: '', zipCode: '' });
   const [loadingAddress, setLoadingAddress] = useState(false);
+  const [confirmProcessing, setConfirmProcessing] = useState(false);
+  const [partsRefreshKey, setPartsRefreshKey] = useState(0);
 
   const handleSubmitPartsClick = async () => {
     // Load vendor address and show confirmation
@@ -898,19 +900,37 @@ const AssignmentsPage = () => {
 
   const handleConfirmAndProceed = async () => {
     if (!selectedId) return;
+    setConfirmProcessing(true);
     try {
-      for (const item of cart) {
-        await ApiService.addPart(selectedId, {
-          partNo: item.partNo,
-          quantity: item.quantity,
-          brand: item.brand || 'Speed Queen',
-          itemDescription: item.name || item.description,
-          sourceType: 'ordered',
-          draft: partsError ? true : false,
-          price: item.price || 15.00
-        });
+      const assignmentNumId = Number(activeJobDetails?.id) || Number(String(selectedId).replace(/\D/g, '')) || 0;
+
+      // Build items payload from cart
+      const items = cart.map(item => ({
+        itemId: item.itemId || item.partNo,
+        partNo: item.partNo,
+        quantity: item.quantity,
+        productGroupId: item.productGroupId || '',
+        productGroupName: item.description || '',
+        itemDescription: item.name || '',
+        itemImageUrl: item.imageUrl || '',
+        partType: 'local',
+      }));
+
+      // API 4 — Check for existing orders
+      const ordersRes = await ApiService.getOrders(assignmentNumId);
+      const existingOrders: any[] = ordersRes?.data || [];
+
+      if (existingOrders.length > 0) {
+        // API 5b — Update existing order
+        const orderId = existingOrders[0].orderId || existingOrders[0].id;
+        await ApiService.updateOrder(assignmentNumId, orderId, items);
+      } else {
+        // API 5a — Create new order
+        await ApiService.createOrder(assignmentNumId, items);
       }
+
       trackPartsOrdered(selectedId);
+      setPartsRefreshKey(k => k + 1);
 
       if (partsError) {
         await ApiService.updateAssignmentStatus(selectedId, 'waiting_on_parts');
@@ -933,7 +953,9 @@ const AssignmentsPage = () => {
         loadData();
       }
     } catch (e) {
-      console.error(e);
+      console.error('handleConfirmAndProceed failed:', e);
+    } finally {
+      setConfirmProcessing(false);
     }
   };
 
@@ -1920,6 +1942,7 @@ const AssignmentsPage = () => {
                         jobId={activeJobDetails.id} 
                         assignments={assignments} 
                         setAssignments={setAssignments} 
+                        refreshKey={partsRefreshKey}
                         onTrackParts={() => {
                           setSelectedTrackPart(null);
                           setTrackDetailBackToSummary(false);
@@ -2983,10 +3006,17 @@ const AssignmentsPage = () => {
               <div className="px-6 pb-6 space-y-2">
                 <button
                   onClick={handleConfirmAndProceed}
-                  disabled={!shippingAddress.addressLine1}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50"
+                  disabled={!shippingAddress.addressLine1 || confirmProcessing}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Confirm and Proceed
+                  {confirmProcessing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    'Confirm and Proceed'
+                  )}
                 </button>
                 <button
                   onClick={() => setShowAddressConfirm(false)}
@@ -3563,12 +3593,14 @@ const PartsListSection = ({
   jobId, 
   assignments, 
   setAssignments,
+  refreshKey,
   onTrackParts,
   onTrackDetail
 }: { 
   jobId: string; 
   assignments: any[]; 
   setAssignments: React.Dispatch<React.SetStateAction<any[]>>;
+  refreshKey?: number;
   onTrackParts: () => void;
   onTrackDetail: (part: any) => void;
 }) => {
@@ -3593,7 +3625,7 @@ const PartsListSection = ({
 
   useEffect(() => {
     loadParts();
-  }, [jobId]); // reload when job changes
+  }, [jobId, refreshKey]); // reload when job changes or parts are added
 
   const handleDeletePart = async (part: any) => {
     try {

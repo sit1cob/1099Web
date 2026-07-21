@@ -1075,7 +1075,17 @@ class ApiService {
     }
   }
 
-  async createOrder(assignmentId: number, items: Array<{ itemId: string; partNo: string; quantity: number; productGroupId: string }>): Promise<any> {
+  async getOrders(assignmentId: number | string): Promise<any> {
+    try {
+      const response = await this.api.get(`/api/assignments/${assignmentId}/orders`);
+      return response.data;
+    } catch (error) {
+      console.warn('getOrders failed, returning empty orders.');
+      return { success: true, data: [] };
+    }
+  }
+
+  async createOrder(assignmentId: number, items: Array<{ itemId: string; partNo: string; quantity: number; productGroupId: string; productGroupName?: string; itemDescription?: string; itemImageUrl?: string; partType?: string }>): Promise<any> {
     try {
       const response = await this.api.post(`/api/assignments/${assignmentId}/orders`, { items });
       return response.data;
@@ -1102,9 +1112,9 @@ class ApiService {
     }
   }
 
-  async updateOrder(assignmentId: number, orderId: string, items: Array<{ itemId: string; partNo: string; quantity: number; productGroupId: string }>): Promise<any> {
+  async updateOrder(assignmentId: number, orderId: string, items: Array<{ itemId: string; partNo: string; quantity: number; productGroupId: string; productGroupName?: string; itemDescription?: string; itemImageUrl?: string; partType?: string }>): Promise<any> {
     try {
-      const response = await this.api.put(`/api/assignments/${assignmentId}/orders/${orderId}`, { items });
+      const response = await this.api.patch(`/api/assignments/${assignmentId}/orders/${orderId}`, { items });
       return response.data;
     } catch (error) {
       console.warn('updateOrder failed, simulating mock order update.');
