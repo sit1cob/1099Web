@@ -728,6 +728,7 @@ const AssignmentsPage = () => {
           description: item.productGroupName || item.description || '',
           price: parseFloat(item.itemSellingPrice) || item.price || 0,
           available: item.itemAvailabilityStatus ? item.itemAvailabilityStatus === 'PIA' : item.available !== false,
+          productGroupId: item.productGroupId || '',
           imageUrl: item.itemImageUrl || '',
         }));
         setPartsSearch(prev => ({ ...prev, modelResults: [], selectedModel: null, results: parts, searching: false }));
@@ -753,7 +754,7 @@ const AssignmentsPage = () => {
         price: parseFloat(item.itemSellingPrice) || item.price || 0,
         available: item.itemAvailabilityStatus === 'PIA',
         productGroupId: item.productGroupId || '',
-        imageUrl: item.itemImageUrl || '',
+        imageUrl: item.itemImageUrl || ''
       }));
       setPartsSearch(prev => ({ ...prev, results: parts, searching: false }));
     } catch (e) {
