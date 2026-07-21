@@ -1030,7 +1030,7 @@ const AssignmentsPage = () => {
 
       const isCustomerAcknowledgeRequired = isCompleteCompleted || isCompleteEstimateDeclined;
       const isSignatureRequired = isCustomerAcknowledgeRequired;
-      const isPhotoRequired = false;
+      const isPhotoRequired = true;
 
       if (isCompleteRescheduled && !completeForm.rescheduleReason) {
         alert('Reschedule reason is required');
@@ -1050,6 +1050,10 @@ const AssignmentsPage = () => {
       }
       if (isCompleteEstimateDeclined && !completeForm.estimateDeclineReason) {
         alert('Estimate decline reason is required');
+        return;
+      }
+      if (!completeForm.photoUploaded) {
+        alert('Please upload a repair photo before submitting.');
         return;
       }
       if (isCustomerAcknowledgeRequired && !completeForm.acknowledged) {
@@ -3007,7 +3011,7 @@ const AssignmentsPage = () => {
 
         const isCustomerAcknowledgeRequired = isCompleteCompleted || isCompleteEstimateDeclined;
         const isSignatureRequired = isCustomerAcknowledgeRequired;
-        const isPhotoRequired = false;
+        const isPhotoRequired = true;
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -3125,9 +3129,9 @@ const AssignmentsPage = () => {
                 <div className="space-y-4 flex flex-col">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Upload Repair Photo (Optional)
+                      Upload Repair Photo *
                     </label>
-                    <div className="border border-dashed border-gray-300 hover:border-blue-400 bg-gray-50/60 rounded-xl p-4 text-center cursor-pointer">
+                    <div className={`border border-dashed ${isPhotoRequired && !completeForm.photoUploaded ? 'border-red-300 bg-red-50/40' : 'border-gray-300 hover:border-blue-400 bg-gray-50/60'} rounded-xl p-4 text-center cursor-pointer`}>
                       {completeForm.photoUploaded ? (
                         <div className="flex flex-col items-center gap-1">
                           <Check className="h-5 w-5 text-emerald-400" />
