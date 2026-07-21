@@ -2880,8 +2880,12 @@ const AssignmentsPage = () => {
                   </button>
                   <button
                     onClick={handleAddPartsToJob}
-                    disabled={cart.length === 0 || !availabilityChecked}
-                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    disabled={
+                      cart.length === 0 ||
+                      !availabilityChecked ||
+                      (availabilityChecked && cart.every(item => partsAvailability[item.partNo] === false))
+                    }
+                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {partsError ? 'Order & Reschedule' : 'Submit Parts'}
                   </button>
