@@ -177,7 +177,7 @@ const LoginPage = () => {
 
         {/* Footer */}
         <footer className="mt-14 flex items-center justify-center gap-2 text-blue-300/30 text-[12px] font-medium tracking-wide">
-          <span>v2.0.4</span>
+          <span>v2.0.5</span>
           <span className="text-blue-300/20">·</span>
           <span>Sears Home Services © 2026</span>
         </footer>

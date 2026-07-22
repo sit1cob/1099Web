@@ -149,7 +149,7 @@ const AccountPage = () => {
       const answers = Object.keys(feedbackAnswers).map(key => ({ questionId: key, answer: feedbackAnswers[key] }));
       const res = await ApiService.submitFeedback({
         metadata: {
-          appVersion: '2.0.4',
+          appVersion: '2.0.5',
           deviceModel: navigator.userAgent.slice(0, 50),
           osVersion: navigator.platform,
           timestamp: new Date().toISOString(),
