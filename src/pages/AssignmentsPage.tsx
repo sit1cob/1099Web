@@ -766,10 +766,11 @@ const AssignmentsPage = () => {
   };
 
   const handleAddToCart = (part: any) => {
+    const cartKey = part.itemId || part.partNo;
     setCart(prev => {
-      const existing = prev.find(i => i.partNo === part.partNo);
+      const existing = prev.find(i => (i.itemId || i.partNo) === cartKey);
       if (existing) {
-        return prev.map(i => i.partNo === part.partNo ? { ...i, quantity: i.quantity + 1 } : i);
+        return prev.map(i => (i.itemId || i.partNo) === cartKey ? { ...i, quantity: i.quantity + 1 } : i);
       }
       return [...prev, { ...part, quantity: 1 }];
     });
@@ -778,9 +779,9 @@ const AssignmentsPage = () => {
     setPartsError(null);
   };
 
-  const handleUpdateCartQty = (partNo: string, amount: number) => {
+  const handleUpdateCartQty = (cartKey: string, amount: number) => {
     setCart(prev => prev.map(item => {
-      if (item.partNo === partNo) {
+      if ((item.itemId || item.partNo) === cartKey) {
         return { ...item, quantity: Math.max(1, item.quantity + amount) };
       }
       return item;
@@ -790,8 +791,8 @@ const AssignmentsPage = () => {
     setPartsError(null);
   };
 
-  const handleRemoveFromCart = (partNo: string) => {
-    setCart(prev => prev.filter(i => i.partNo !== partNo));
+  const handleRemoveFromCart = (cartKey: string) => {
+    setCart(prev => prev.filter(i => (i.itemId || i.partNo) !== cartKey));
   };
 
   // Parts stock/availability check
@@ -2797,7 +2798,7 @@ const AssignmentsPage = () => {
                     const isAvailable = partsAvailability[item.partNo];
                     return (
                       <div 
-                        key={item.partNo}
+                        key={item.itemId || item.partNo}
                         className={`p-3 rounded-xl flex flex-col gap-2 relative border ${
                           isChecked && !isAvailable 
                             ? 'bg-rose-50 border-rose-300' 
@@ -2807,7 +2808,7 @@ const AssignmentsPage = () => {
                         }`}
                       >
                         <button 
-                          onClick={() => handleRemoveFromCart(item.partNo)}
+                          onClick={() => handleRemoveFromCart(item.itemId || item.partNo)}
                           className="absolute right-2 top-2 text-gray-400 hover:text-rose-400 cursor-pointer"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -2837,14 +2838,14 @@ const AssignmentsPage = () => {
                             {/* Qty selectors */}
                             <div className="flex items-center border border-gray-200 rounded bg-white overflow-hidden">
                               <button 
-                                onClick={() => handleUpdateCartQty(item.partNo, -1)}
+                                onClick={() => handleUpdateCartQty(item.itemId || item.partNo, -1)}
                                 className="px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-bold"
                               >
                                 -
                               </button>
                               <span className="px-2.5 text-[10px] font-bold text-gray-900">{item.quantity}</span>
                               <button 
-                                onClick={() => handleUpdateCartQty(item.partNo, 1)}
+                                onClick={() => handleUpdateCartQty(item.itemId || item.partNo, 1)}
                                 className="px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-bold"
                               >
                                 +
