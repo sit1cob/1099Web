@@ -382,6 +382,7 @@ class ApiService {
         raw.data = raw.data.map((j: any) => ({
           ...j,
           appliance: j.appliance || j.applianceType || 'Service',
+          applianceCode: j.applianceCode || '',
           brand: j.brand || j.manufacturerBrand || '',
           city: j.city || j.customerCity || '',
           address: j.address || j.customerAddress || '',

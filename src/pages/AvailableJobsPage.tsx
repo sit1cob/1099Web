@@ -99,7 +99,7 @@ const AvailableJobsPage = () => {
                     </div>
                     <ArrowRight className="h-5 w-5 text-gray-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all mt-1" />
                   </div>
-                  <p className="font-bold text-gray-900 text-[16px] mb-1">{job.appliance || 'Service'}</p>
+                  <p className="font-bold text-gray-900 text-[16px] mb-1">{(job as any).applianceCode || job.appliance || 'Service'}</p>
                   <p className="text-[13px] text-gray-500 font-mono mb-4">SO# {job.soNumber}</p>
                   <div className="space-y-2.5 text-[13px] text-gray-600">
                     <div className="flex items-center gap-2.5">

@@ -357,6 +357,7 @@ const AssignmentsPage = () => {
         customerCity: j.customerCity,
         customerState: j.customerState,
         customerZip: j.customerZip || '60192',
+        applianceCode: j.applianceCode || j.applianceType || j.appliance,
         applianceType: j.applianceType || j.appliance,
         manufacturerBrand: j.manufacturerBrand || j.brand,
         scheduledDate: j.scheduledDate,
@@ -466,6 +467,7 @@ const AssignmentsPage = () => {
         customerCity: j.customerCity,
         customerState: j.customerState,
         customerZip: j.customerZip || '60192',
+        applianceCode: j.applianceCode || j.applianceType || j.appliance,
         applianceType: j.applianceType || j.appliance,
         manufacturerBrand: j.manufacturerBrand || j.brand,
         scheduledDate: j.scheduledDate,
@@ -1306,7 +1308,7 @@ const AssignmentsPage = () => {
                       ? String(rawSo).trim().toUpperCase()
                       : `SO-${String(rawSo).trim()}`;
                     const dateStr = a.scheduledDate || a.job?.scheduledDate;
-                    const applianceType = a.job?.applianceCode || a.job?.applianceType || a.job?.appliance || 'Service Job';
+                    const applianceType = a.job?.applianceType || a.job?.applianceCode || a.job?.appliance || 'Service Job';
                     const customerName = a.job?.customerName || '';
                     
                     return (

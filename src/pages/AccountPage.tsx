@@ -375,68 +375,6 @@ const AccountPage = () => {
                 </div>
               </div>
 
-              {/* Side column: Legal & Terms */}
-              <div className="space-y-6">
-                <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6">
-                  <h4 className="font-bold text-gray-900 mb-4">Verification & Credentials</h4>
-                  <div className="space-y-3.5 text-sm">
-                    <div className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                        <Check className="h-3 w-3 text-emerald-400" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">Background Check</p>
-                        <p className="text-xs text-gray-500">Passed - Expires Dec 2026</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                        <Check className="h-3 w-3 text-emerald-400" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">General Liability Insurance</p>
-                        <p className="text-xs text-gray-500">Active policy ($2,000,000 limit)</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                        <Check className="h-3 w-3 text-emerald-400" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">EPA 608 Certification</p>
-                        <p className="text-xs text-gray-500">Universal Type - Approved</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6 pt-5 border-t border-gray-200 text-[11px] text-gray-400 leading-relaxed">
-                    Need to renew or upload credentials? Contact the Sears Field Operations compliance center at <span className="text-blue-400">compliance@searskairos.ai</span>.
-                  </div>
-                </div>
-
-                <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6">
-                  <h4 className="font-bold text-gray-900 mb-2">Technician Tier System</h4>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Sears Sasha 1099 assigns technicians tiers based on performance score, customer feedback, and first-time fix rate:
-                  </p>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-yellow-50 border border-yellow-200 text-xs">
-                      <span className="font-semibold text-yellow-400">Elite Tier (90+)</span>
-                      <span className="text-gray-500 font-medium">+8% payout boost</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-transparent text-xs border border-transparent">
-                      <span className="font-semibold text-gray-700">Pro Tier (80-89)</span>
-                      <span className="text-gray-400 font-medium">+3% payout boost</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-transparent text-xs border border-transparent">
-                      <span className="font-semibold text-gray-500">Standard Tier (60-79)</span>
-                      <span className="text-gray-400 font-medium">Standard rates</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
