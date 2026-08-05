@@ -105,17 +105,15 @@ const AssignmentsPage = () => {
     return params.get('view') === 'calendar' ? 'calendar' : 'list';
   }, [location.search]);
 
-  // Read selected job from query params if present
+  // Read selected job / filter tab from query params if present
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const idParam = params.get('id');
+    const idParam     = params.get('id');
     const searchParam = params.get('search');
-    if (idParam) {
-      setSelectedId(idParam);
-    }
-    if (searchParam) {
-      setSearchQuery(searchParam);
-    }
+    const tabParam    = params.get('tab');
+    if (idParam) setSelectedId(idParam);
+    if (searchParam) setSearchQuery(searchParam);
+    if (tabParam && STATUS_TABS.includes(tabParam)) setActiveTab(tabParam);
   }, [location.search]);
 
   // Modals & Drawers trigger states
