@@ -1188,7 +1188,7 @@ const AssignmentsPage = () => {
       <div className="flex-grow flex overflow-hidden">
         
         {/* Left Column Workspace */}
-        <div className="w-full lg:w-[300px] xl:w-[380px] 2xl:w-[450px] shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
+        <div className={`w-full lg:w-[300px] xl:w-[380px] 2xl:w-[450px] shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden ${selectedId ? 'hidden lg:flex' : 'flex'}`}>
           
           {/* Header */}
           <div className="p-5 border-b border-gray-200 shrink-0">
@@ -1521,8 +1521,21 @@ const AssignmentsPage = () => {
         </div>
 
         {/* Right Detail Pane Column */}
-        <div className="flex-grow min-w-0 flex flex-col bg-gray-50 overflow-hidden relative">
+        <div className={`flex-grow min-w-0 flex flex-col bg-gray-50 overflow-hidden relative ${selectedId ? 'flex' : 'hidden lg:flex'}`}>
           
+          {/* Mobile Back Button */}
+          {selectedId && (
+            <div className="lg:hidden shrink-0 px-4 py-2.5 border-b border-gray-200 bg-white flex items-center gap-2">
+              <button
+                onClick={() => { setSelectedId(null); navigate('/assignments?view=list'); }}
+                className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Back to Jobs</span>
+              </button>
+            </div>
+          )}
+
           {!activeJobDetails ? (
             <div className="flex-grow flex flex-col items-center justify-center p-8 text-center bg-white relative overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.03),transparent_50%)] pointer-events-none" />
@@ -2645,10 +2658,10 @@ const AssignmentsPage = () => {
       {/* 5. Add Parts / Catalog search Modal with Out-Of-Stock error logic */}
       {showPartsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-4xl h-[550px] shadow-2xl flex overflow-hidden text-gray-700">
+          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-4xl h-[90vh] md:h-[550px] shadow-2xl flex flex-col md:flex-row overflow-hidden text-gray-700">
             
             {/* Left Column: Search & results catalog */}
-            <div className="flex-grow flex flex-col overflow-hidden p-6 border-r border-gray-200">
+            <div className="flex-grow flex flex-col overflow-hidden p-4 md:p-6 md:border-r border-gray-200">
               
               <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-4 shrink-0">
                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -2778,7 +2791,7 @@ const AssignmentsPage = () => {
             </div>
 
             {/* Right Column: Cart list sidebar & Availability Checker */}
-            <div className="w-[300px] shrink-0 bg-gray-50 border-l border-gray-200 flex flex-col justify-between overflow-hidden">
+            <div className="w-full md:w-[300px] shrink-0 bg-gray-50 border-t md:border-t-0 md:border-l border-gray-200 flex flex-col justify-between overflow-hidden">
               <div className="p-5 border-b border-gray-200 shrink-0">
                 <h4 className="font-bold text-gray-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <ClipboardList className="h-4 w-4 text-blue-400" />

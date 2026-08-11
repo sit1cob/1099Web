@@ -6,7 +6,8 @@ import SashaChatPage from '../pages/SashaChatPage';
 import {
   LayoutDashboard, ClipboardList, Wrench, DollarSign, LogOut,
   Shield, Search, MessageSquare, ChevronDown, ChevronRight, Award,
-  User, Settings, Star, TrendingUp, Calendar, List, History, Sun, Moon, MessageCircle
+  User, Settings, Star, TrendingUp, Calendar, List, History, Sun, Moon, MessageCircle,
+  Menu, X
 } from 'lucide-react';
 
 const Layout = () => {
@@ -14,6 +15,12 @@ const Layout = () => {
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname, location.search]);
 
   // Keep track of which sidebar sections are expanded
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
@@ -41,21 +48,56 @@ const Layout = () => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans">
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center justify-between px-4 border-b border-gray-200 bg-white shadow-sm">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-700 transition-colors"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
+            <Shield className="h-4 w-4 text-white" />
+          </div>
+          <span className="font-extrabold text-sm tracking-wider text-gray-900">SEARS KAIROS</span>
+        </div>
+        <div className="w-9" />
+      </div>
+
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside 
-        className="w-72 flex-shrink-0 flex flex-col overflow-y-auto" 
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-72 flex-shrink-0 flex flex-col overflow-y-auto transform transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
         style={{ background: 'radial-gradient(circle at top left, #0A2647, #001021)', color: '#f1f5f9' }}
       >
         {/* Sears KAIros / Sasha 1099 Branding */}
         <div className="p-6 border-b border-blue-900/40 flex flex-col gap-1.5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 border border-blue-400/20">
-              <Shield className="h-5.5 w-5.5 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 border border-blue-400/20">
+                <Shield className="h-5.5 w-5.5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-extrabold text-lg tracking-wider" style={{ color: '#ffffff' }}>SEARS KAIROS</h1>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#60a5fa' }}>SASHA 1099 PORTAL</p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-extrabold text-lg tracking-wider" style={{ color: '#ffffff' }}>SEARS KAIROS</h1>
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#60a5fa' }}>SASHA 1099 PORTAL</p>
-            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 text-gray-300 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
 
@@ -309,7 +351,7 @@ const Layout = () => {
           </button>
         </div>
 
-        {/* User Footer with ELITE Badge */}
+        {/* User Footer */}
         <div className="mt-auto p-4.5 border-t border-blue-900/40" style={{ backgroundColor: 'rgba(2, 6, 23, 0.2)' }}>
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center font-bold border border-blue-400/20 shrink-0 text-base shadow-inner" style={{ color: '#ffffff' }}>
@@ -319,12 +361,7 @@ const Layout = () => {
               <div className="flex items-center gap-1.5">
                 <p className="text-sm font-semibold truncate" style={{ color: '#ffffff' }}>{user?.vendorName || 'Sasha Tech'}</p>
               </div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="flex items-center gap-0.5 px-2 py-0.5 bg-yellow-500/25 border border-yellow-500/40 rounded text-[10px] font-extrabold tracking-wider" style={{ color: '#facc15' }}>
-                  ELITE
-                </span>
-                <span className="text-xs truncate" style={{ color: '#94a3b8' }}>Technician</span>
-              </div>
+              <span className="text-xs truncate mt-1 block" style={{ color: '#94a3b8' }}>Technician</span>
             </div>
           </div>
           <button
@@ -338,7 +375,7 @@ const Layout = () => {
       </aside>
 
       {/* Main Panel */}
-      <main className="flex-grow flex flex-col overflow-hidden bg-gray-50 relative">
+      <main className="flex-grow flex flex-col overflow-hidden bg-gray-50 relative pt-14 lg:pt-0">
         {isActiveRoute('/chat') ? (
           <div className="flex-grow flex flex-col h-full w-full">
             <SashaChatPage active={true} />

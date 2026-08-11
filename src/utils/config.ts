@@ -1,10 +1,10 @@
 export const API_CONFIG = {
-  BASE_URL: 'https://pros.shs.com',
+  BASE_URL: 'https://1099backend.searskairos.ai',
   TIMEOUT: 30000,
 };
 
 export const V2_API_CONFIG = {
-  BASE_URL: 'https://pros.shs.com',
+  BASE_URL: 'https://1099backend.searskairos.ai',
   TIMEOUT: 30000,
 };
 

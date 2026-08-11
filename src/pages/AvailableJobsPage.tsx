@@ -34,7 +34,7 @@ const AvailableJobsPage = () => {
   }, [jobs, searchQuery]);
 
   return (
-    <div className="flex-grow flex flex-col bg-gray-50 text-gray-900 overflow-y-auto p-8">
+    <div className="flex-grow flex flex-col bg-gray-50 text-gray-900 overflow-y-auto p-4 md:p-8">
       <div className="max-w-[1400px] w-full mx-auto space-y-6 flex-grow">
         <div className="flex items-center justify-between">
           <div>

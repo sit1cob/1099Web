@@ -65,9 +65,6 @@ const EarningsPage = () => {
     navigate(`/earnings?tab=${tab}`);
   };
 
-  const eliteBonus = earningsData?.elite_bonus;
-  const isEliteActive = eliteBonus && eliteBonus.tier?.toLowerCase() === 'elite';
-  const eliteRate = eliteBonus ? `+${Number(eliteBonus.bonus_percent).toFixed(1)}%` : '+8.0%';
 
   // Extract metrics based on the active tab
   const activePeriodMetrics = useMemo(() => {
@@ -267,31 +264,22 @@ const EarningsPage = () => {
         <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-gray-50 to-transparent" />
       </div>
 
-      <div className="px-6 md:px-12 max-w-6xl w-full mx-auto -mt-20 relative z-10 flex-grow pb-16">
+      <div className="px-4 sm:px-6 md:px-12 max-w-6xl w-full mx-auto -mt-20 relative z-10 flex-grow pb-16">
         {/* Title Block */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-gray-200">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-gray-900">Earnings Ledger</h1>
-              {isEliteActive && (
-                <span className="flex items-center gap-1 px-2.5 py-0.5 bg-yellow-50 border border-yellow-300 rounded text-[10px] font-extrabold text-yellow-700 tracking-wider uppercase">
-                  Elite Bonus Active
-                </span>
-              )}
             </div>
             <p className="text-sm text-gray-500 mt-1.5">
-              Review completed job payouts, pending invoice approvals, and Elite Tier 8% commission bonuses.
+              Review completed job payouts and pending invoice approvals.
             </p>
           </div>
 
           <div className="flex items-center gap-4 bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-            <div className="px-3 border-r border-gray-200 text-center">
+            <div className="px-3 text-center">
               <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Jobs Count</p>
               <p className="text-lg font-bold text-gray-900 mt-0.5">{activePeriodMetrics.jobs}</p>
-            </div>
-            <div className="px-3 text-center">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Elite Rate</p>
-              <p className="text-lg font-bold text-yellow-600 mt-0.5">{eliteRate}</p>
             </div>
           </div>
         </div>
@@ -330,13 +318,8 @@ const EarningsPage = () => {
                 <div className="relative z-10 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Wallet className="h-5 w-5 text-blue-200 animate-pulse" />
-                    <span className="text-blue-100 text-xs font-semibold uppercase tracking-wider">Gross Est Payout (With Bonus)</span>
+                    <span className="text-blue-100 text-xs font-semibold uppercase tracking-wider">Gross Est Payout</span>
                   </div>
-                  {isEliteActive && (
-                    <span className="px-2 py-0.5 bg-yellow-400/20 border border-yellow-300/40 rounded text-[9px] font-extrabold text-yellow-200 tracking-wider">
-                      ELITE TIER BONUS APPLIED
-                    </span>
-                  )}
                 </div>
 
                 <div className="relative z-10 mt-4">
@@ -359,7 +342,7 @@ const EarningsPage = () => {
                     <span className="font-bold text-white">${activePeriodMetrics.projected.toFixed(2)}</span>
                   </div>
                   <div>
-                    <span className="text-blue-200 block">8% Elite Bonus</span>
+                    <span className="text-blue-200 block">Bonus</span>
                     <span className="font-bold text-yellow-300">${activePeriodMetrics.bonus.toFixed(2)}</span>
                   </div>
                   <div>
@@ -431,7 +414,7 @@ const EarningsPage = () => {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full bg-[#EAB308]" />
-                      <span>Elite Bonus</span>
+                      <span>Bonus</span>
                     </div>
                   </div>
                 </div>
@@ -467,7 +450,7 @@ const EarningsPage = () => {
                         }}
                         itemStyle={{ color: '#374151' }}
                         formatter={(value: any, name: any) => {
-                          const label = name === 'amountPaid' ? 'Paid' : name === 'amountOwed' ? 'Owed' : 'Elite Bonus';
+                          const label = name === 'amountPaid' ? 'Paid' : name === 'amountOwed' ? 'Owed' : 'Bonus';
                           return [`$${Number(value).toFixed(2)}`, label];
                         }}
                         labelFormatter={(label) => `Period: ${label}`}
@@ -562,10 +545,7 @@ const EarningsPage = () => {
               <div className="space-y-1">
                 <h4 className="font-bold text-gray-900 text-xs">Sasha Earnings Tip</h4>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  {isEliteActive 
-                    ? `"Your active Elite Tier status delivers a direct ${eliteBonus?.bonus_percent || 8}% commission boost on top of standard contract pay. Keep your customer feedback positive and check available jobs every morning to lock in higher earnings rates."`
-                    : `"Boost your earnings by qualifying for the Elite Tier! Maintain a service score of 90 or above to activate an additional 8% commission bonus on all your completed jobs."`
-                  }
+                  "Keep your customer feedback positive and check available jobs every morning to maximize your earnings."
                 </p>
               </div>
             </div>

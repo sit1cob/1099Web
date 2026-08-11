@@ -201,7 +201,7 @@ const AccountPage = () => {
       </div>
 
       {/* Main Layout Container */}
-      <div className="px-6 md:px-12 max-w-6xl w-full mx-auto -mt-20 relative z-10 flex-grow pb-16">
+      <div className="px-4 sm:px-6 md:px-12 max-w-6xl w-full mx-auto -mt-20 relative z-10 flex-grow pb-16">
         
         {/* Profile Card & Info */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-gray-200">
@@ -215,9 +215,6 @@ const AccountPage = () => {
                 <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-gray-900">
                   {profile?.vendorName || 'Sasha Tech Solutions'}
                 </h1>
-                <span className="flex items-center gap-1 px-2.5 py-0.5 bg-yellow-500/20 border border-yellow-500/40 rounded text-[10px] font-extrabold text-yellow-400 tracking-wider uppercase">
-                  ELITE PARTNER
-                </span>
               </div>
               <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-emerald-400" />
@@ -308,13 +305,6 @@ const AccountPage = () => {
                       <p className="text-[10px] text-gray-400 mt-1">Managed via contractor registration portal.</p>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">IRS 1099 Tier</label>
-                      <div className="mt-1.5 w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm text-yellow-700 font-semibold flex items-center gap-2 select-none">
-                        <Award className="h-4 w-4 text-yellow-400 fill-yellow-400/20" />
-                        <span>Elite Status (8% payout bonus active)</span>
-                      </div>
-                    </div>
 
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Email Address</label>
@@ -384,7 +374,7 @@ const AccountPage = () => {
               {/* Radial Header Block */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
-                {/* Visual Circle Indicator for the Elite Score */}
+                {/* Visual Circle Indicator for the Performance Score */}
                 <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 flex flex-col items-center justify-center text-center">
                   <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Overall Performance</h4>
                   
@@ -416,12 +406,12 @@ const AccountPage = () => {
                     {/* Inner score label */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <span className="text-3xl font-extrabold text-gray-900">{performance.value || 92}</span>
-                      <span className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider">ELITE TIER</span>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">SCORE</span>
                     </div>
                   </div>
                   
                   <p className="text-xs text-gray-500 mt-4 max-w-[200px] leading-relaxed">
-                    Your score is recalculating every Sunday. Maintain &gt;90 to stay Elite.
+                    Your score is recalculated every Sunday.
                   </p>
                 </div>
 

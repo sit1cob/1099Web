@@ -124,7 +124,7 @@ class ApiService {
         phone: '555-123-6789',
         mobile: '555-019-2834',
         role: 'registered_user',
-        tier: 'ELITE',
+        tier: '',
         isActive: true,
         zipCodes: ['60179'],
         addressLine1: '5407 Trillium Blvd',
@@ -206,7 +206,7 @@ class ApiService {
           vendorName: storedUser?.vendorName || 'Sasha Tech Solutions',
           email: storedUser?.email || '',
           mobile: storedUser?.mobile || '555-019-2834',
-          tier: 'ELITE',
+          tier: '',
           addressLine1: '3333 Beverly Rd',
           city: 'Hoffman Estates',
           state: 'IL',
@@ -228,7 +228,7 @@ class ApiService {
   async getFeedbackConfig(): Promise<any> {
     try {
       const token = this.getToken();
-      const response = await axios.get('https://app1099-api.searskairos.ai/api/feedback/config', {
+      const response = await axios.get('https://1099backend.searskairos.ai/api/feedback/config', {
         headers: {
           Authorization: token ? (token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`) : '',
           'Content-Type': 'application/json',
@@ -258,7 +258,7 @@ class ApiService {
   async submitFeedback(data: { metadata: { appVersion: string; deviceModel: string; osVersion: string; timestamp: string }; answers: { questionId: string; answer: any }[] }): Promise<any> {
     try {
       const token = this.getToken();
-      const response = await axios.post('https://app1099-api.searskairos.ai/api/feedback/submit', data, {
+      const response = await axios.post('https://1099backend.searskairos.ai/api/feedback/submit', data, {
         headers: {
           Authorization: token ? (token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`) : '',
           'Content-Type': 'application/json',
@@ -347,7 +347,7 @@ class ApiService {
               currency: 'USD',
             },
             tier: {
-              label: 'ELITE',
+              label: '',
               score: 92,
               icon: 'Award',
               color: '#D4AF37',
@@ -360,7 +360,7 @@ class ApiService {
               weekly_earnings: { value: 1250, currency: 'USD', change: 150, change_label: 'vs last month', trend: 'up' },
             },
             summary_cards: {
-              score: { value: 92, tier_label: 'ELITE' },
+              score: { value: 92, tier_label: '' },
               rating: { value: 4.85, review_count: 47 },
               parts: { on_order_count: parts.filter(p => p.status === 'Shipped').length, label: 'Parts on Order' },
             },
@@ -501,7 +501,7 @@ class ApiService {
   async getAssignmentDetails(assignmentId: string): Promise<any> {
     try {
       const token = this.getToken();
-      const response = await axios.get(`https://app1099-api.searskairos.ai/api/assignments/${assignmentId}`, {
+      const response = await axios.get(`https://1099backend.searskairos.ai/api/assignments/${assignmentId}`, {
         headers: {
           Authorization: token ? (token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`) : '',
           'Content-Type': 'application/json',
@@ -693,7 +693,7 @@ class ApiService {
     try {
       const token = this.getToken();
       const response = await axios.put<RescheduleResponse>(
-        `https://pros.shs.com/api/v3/assignments/${assignmentId}/schedule`,
+        `https://1099backend.searskairos.ai/api/v3/assignments/${assignmentId}/schedule`,
         request,
         {
           headers: {
@@ -735,7 +735,7 @@ class ApiService {
     try {
       const token = this.getToken();
       const response = await axios.patch(
-        `https://app1099-api.searskairos.ai/api/v3/assignments/${assignmentId}`,
+        `https://1099backend.searskairos.ai/api/v3/assignments/${assignmentId}`,
         {
           applianceBrandname: body.brand,
           applianceModel: body.modelNumber,
@@ -868,7 +868,7 @@ class ApiService {
     try {
       const token = this.getToken();
       const response = await axios.post(
-        `https://pros.shs.com/api/assignments/${assignmentId}/orders/tracking/status`,
+        `https://1099backend.searskairos.ai/api/assignments/${assignmentId}/orders/tracking/status`,
         body,
         {
           headers: {
@@ -1263,7 +1263,7 @@ class ApiService {
   async getPartsTracking(): Promise<any> {
     try {
       const token = this.getToken();
-      const response = await axios.get('https://pros.shs.com/api/assignments/parts/tracking', {
+      const response = await axios.get('https://1099backend.searskairos.ai/api/assignments/parts/tracking', {
         headers: { Accept: 'application/json', Authorization: token ? `Bearer ${token}` : '' },
       });
       return {
@@ -1281,7 +1281,7 @@ class ApiService {
   async getPartsHistory(limit = 20, offset = 0): Promise<any> {
     try {
       const token = this.getToken();
-      const response = await axios.get('https://pros.shs.com/api/assignments/parts/history', {
+      const response = await axios.get('https://1099backend.searskairos.ai/api/assignments/parts/history', {
         params: { limit, offset },
         headers: { Accept: 'application/json', Authorization: token ? `Bearer ${token}` : '' },
       });
@@ -1331,7 +1331,7 @@ class ApiService {
     try {
       const token = this.getToken();
       const response = await axios.post(
-        `https://pros.shs.com/api/assignments/${assignmentId}/completion-photo-upload-tokens`,
+        `https://1099backend.searskairos.ai/api/assignments/${assignmentId}/completion-photo-upload-tokens`,
         { files: [{ fileName, mimeType }] },
         { headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' } }
       );
@@ -1367,7 +1367,7 @@ class ApiService {
     try {
       const token = this.getToken();
       const response = await axios.post(
-        `https://pros.shs.com/api/assignments/${assignmentId}/completion-photo-tokens/consume`,
+        `https://1099backend.searskairos.ai/api/assignments/${assignmentId}/completion-photo-tokens/consume`,
         { tokens },
         { headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' } }
       );
