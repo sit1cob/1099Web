@@ -38,14 +38,13 @@ export const identifyUser = (userId: string, sessionId?: string, pageId?: string
 
 // Auth
 export const trackLogin = (username: string, userData?: any) => {
-  // Identify the user in Clarity (links all sessions to this user)
-  const userId = userData?.vendorId || userData?.id || username;
-  identifyUser(String(userId));
+  // Identify the user in Clarity using username as primary ID (same as mobile app)
+  identifyUser(username);
 
   // Set all available technician details as tags
   setTag('username', username);
   setTag('user_role', userData?.role || 'technician');
-  if (userData?.id) setTag('user_id', String(userData.id));
+  if (userData?.id) setTag('user_id', String(userData.username));
   if (userData?.vendorId) setTag('vendor_id', String(userData.vendorId));
   if (userData?.vendorName) setTag('vendor_name', userData.vendorName);
   if (userData?.name) setTag('tech_name', userData.name);
@@ -67,12 +66,12 @@ export const identifySession = () => {
     const userStr = localStorage.getItem('user');
     if (!userStr) return;
     const user = JSON.parse(userStr);
-    const userId = user?.vendorId || user?.id || user?.username;
-    if (userId) {
-      identifyUser(String(userId));
-      if (user?.username) setTag('username', user.username);
+    const username = user?.username;
+    if (username) {
+      identifyUser(username);
+      setTag('username', username);
       if (user?.role) setTag('user_role', user.role);
-      if (user?.id) setTag('user_id', String(user.id));
+      if (user?.id) setTag('user_id', String(user.username));
       if (user?.vendorId) setTag('vendor_id', String(user.vendorId));
       if (user?.vendorName) setTag('vendor_name', user.vendorName);
       if (user?.name) setTag('tech_name', user.name);

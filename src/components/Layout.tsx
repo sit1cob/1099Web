@@ -299,31 +299,7 @@ const Layout = () => {
                   <span>Profile & Settings</span>
                 </button>
                 <button
-                  onClick={() => navigate('/account?tab=performance')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all ${
-                    isActiveRoute('/account') && hasQueryParams('tab', 'performance')
-                      ? 'bg-blue-500/20 font-semibold'
-                      : 'hover:bg-white/5'
-                  }`}
-                  style={{ color: isActiveRoute('/account') && hasQueryParams('tab', 'performance') ? '#ffffff' : '#94a3b8' }}
-                >
-                  <Award className="h-4 w-4 animate-pulse text-yellow-400" />
-                  <span>Performance</span>
-                </button>
-                <button
-                  onClick={() => navigate('/account?tab=reviews')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all ${
-                    isActiveRoute('/account') && hasQueryParams('tab', 'reviews')
-                      ? 'bg-blue-500/20 font-semibold'
-                      : 'hover:bg-white/5'
-                  }`}
-                  style={{ color: isActiveRoute('/account') && hasQueryParams('tab', 'reviews') ? '#ffffff' : '#94a3b8' }}
-                >
-                  <Star className="h-4 w-4" />
-                  <span>Customer Reviews</span>
-                </button>
-                <button
-                  onClick={() => navigate('/account?tab=reviews&feedback=open')}
+                  onClick={() => navigate('/account?feedback=open')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md text-left transition-all hover:bg-white/5`}
                   style={{ color: '#94a3b8' }}
                 >
@@ -359,7 +335,7 @@ const Layout = () => {
             </div>
             <div className="flex-grow overflow-hidden">
               <div className="flex items-center gap-1.5">
-                <p className="text-sm font-semibold truncate" style={{ color: '#ffffff' }}>{user?.vendorName || 'Sasha Tech'}</p>
+                <p className="text-sm font-semibold truncate" style={{ color: '#ffffff' }}>{user?.vendorName || user?.username || 'Technician'}</p>
               </div>
               <span className="text-xs truncate mt-1 block" style={{ color: '#94a3b8' }}>Technician</span>
             </div>

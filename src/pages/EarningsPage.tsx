@@ -276,12 +276,6 @@ const EarningsPage = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-4 bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-            <div className="px-3 text-center">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Jobs Count</p>
-              <p className="text-lg font-bold text-gray-900 mt-0.5">{activePeriodMetrics.jobs}</p>
-            </div>
-          </div>
         </div>
 
         {/* Tab Selection Row */}

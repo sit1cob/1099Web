@@ -374,7 +374,7 @@ const AssignmentsPage = () => {
         id: n.id,
         soNumber: `External (${n.source})`,
         customerName: `Non-Sears (${n.source})`,
-        customerCity: 'External Location',
+        customerCity: '',
         customerState: '',
         customerZip: '',
         applianceType: n.appliance,
@@ -483,7 +483,7 @@ const AssignmentsPage = () => {
         id: n.id,
         soNumber: `External (${n.source})`,
         customerName: `Non-Sears (${n.source})`,
-        customerCity: 'External Location',
+        customerCity: '',
         customerState: '',
         customerZip: '',
         applianceType: n.appliance,
@@ -1350,12 +1350,14 @@ const AssignmentsPage = () => {
                               {customerName ? `${customerName} • ` : ''}{applianceType}
                             </p>
                             
+                            {[a.job?.customerAddress, a.job?.customerCity, a.job?.customerState].filter(Boolean).length > 0 && (
                             <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
                               <MapPin className="h-3 w-3 text-gray-400 shrink-0" />
                               <span>
                                 {[a.job?.customerAddress, a.job?.customerCity, a.job?.customerState].filter(Boolean).join(', ')}
                               </span>
                             </p>
+                            )}
                           </div>
 
                           {/* Info chips row with distance, date, and priority */}
@@ -1395,10 +1397,10 @@ const AssignmentsPage = () => {
             <div className="flex-grow flex flex-col overflow-hidden">
               
               {/* Route Tip block */}
-              <div className="p-3.5 border-b border-indigo-950 bg-indigo-950/20 text-[11px] leading-relaxed text-indigo-300 select-none shrink-0 flex items-start gap-2.5">
-                <Sparkles className="h-4.5 w-4.5 text-indigo-400 shrink-0 animate-pulse mt-0.5" />
+              <div className="p-3.5 border-b border-blue-200 bg-blue-50 text-[11px] leading-relaxed text-gray-700 select-none shrink-0 flex items-start gap-2.5">
+                <Sparkles className="h-4.5 w-4.5 text-blue-500 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-extrabold text-indigo-200">Sasha Schedule Insight:</span> 
+                  <span className="font-extrabold text-blue-700">Sasha Schedule Insight:</span>{' '}
                   "Tuesday has 2 jobs scheduled in Hoffman Estates. Claiming available jobs in Schaumburg or Palatine for Wednesday June 3 fits perfectly inside your route limits."
                 </div>
               </div>
@@ -1487,17 +1489,17 @@ const AssignmentsPage = () => {
                                 className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 cursor-pointer transition-all ${
                                   isSel
                                     ? 'bg-blue-50 border-blue-300 shadow-sm shadow-blue-100/50'
-                                    : 'bg-indigo-950/20 border-indigo-900/30 hover:bg-indigo-950/30'
+                                    : 'bg-white border-gray-200 hover:bg-gray-50'
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                                   <div>
                                     <div className="flex items-center gap-1.5">
-                                      <p className="text-xs font-bold text-indigo-300">
+                                      <p className="text-xs font-bold text-gray-900">
                                         Non-Sears Job
                                       </p>
-                                      <span className="text-[9px] bg-indigo-500/25 text-indigo-400 px-1 border border-indigo-500/40 rounded font-semibold uppercase tracking-wider">
+                                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 border border-indigo-200 rounded font-semibold uppercase tracking-wider">
                                         {ns.source}
                                       </span>
                                     </div>
@@ -1715,31 +1717,30 @@ const AssignmentsPage = () => {
                           <p className="text-sm font-extrabold text-gray-900">{activeJobDetails.job?.customerName || 'Customer'}</p>
                         </div>
 
+                        {activeJobDetails.job?.customerPhone && (
                         <div className="space-y-1">
                           <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Phone Number</p>
                           <div className="flex items-center gap-2.5">
-                            <p className="text-sm font-extrabold text-gray-900">{activeJobDetails.job?.customerPhone || 'N/A'}</p>
-                            {activeJobDetails.job?.customerPhone && (
-                              <>
-                                <a 
-                                  href={`tel:${activeJobDetails.job?.customerPhone}`}
-                                  className="w-7 h-7 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50 hover:bg-blue-50 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-all shadow-sm"
-                                  title="Call Customer"
-                                >
-                                  <Phone className="h-3.5 w-3.5 fill-current/5" />
-                                </a>
-                                <a 
-                                  href={`sms:${activeJobDetails.job?.customerPhone}`}
-                                  className="w-7 h-7 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50 hover:bg-blue-50 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-all shadow-sm"
-                                  title="SMS Customer"
-                                >
-                                  <MessageSquare className="h-3.5 w-3.5" />
-                                </a>
-                              </>
-                            )}
+                            <p className="text-sm font-extrabold text-gray-900">{activeJobDetails.job.customerPhone}</p>
+                            <a 
+                              href={`tel:${activeJobDetails.job.customerPhone}`}
+                              className="w-7 h-7 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50 hover:bg-blue-50 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-all shadow-sm"
+                              title="Call Customer"
+                            >
+                              <Phone className="h-3.5 w-3.5 fill-current/5" />
+                            </a>
+                            <a 
+                              href={`sms:${activeJobDetails.job.customerPhone}`}
+                              className="w-7 h-7 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50 hover:bg-blue-50 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-all shadow-sm"
+                              title="SMS Customer"
+                            >
+                              <MessageSquare className="h-3.5 w-3.5" />
+                            </a>
                           </div>
                         </div>
+                        )}
 
+                        {(activeJobDetails.job?.customerAddress || activeJobDetails.job?.customerCity) && (
                         <div className="space-y-1">
                           <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Service Location</p>
                           <p className="text-xs font-semibold text-gray-600 leading-relaxed">
@@ -1747,6 +1748,7 @@ const AssignmentsPage = () => {
                             {activeJobDetails.job?.customerCity || ''}, {activeJobDetails.job?.customerState || ''} {activeJobDetails.job?.customerZip || ''}
                           </p>
                         </div>
+                        )}
                       </div>
                     </div>
                   </div>

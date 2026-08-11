@@ -99,7 +99,7 @@ const DashboardPage = () => {
     <div className="flex-grow flex flex-col overflow-y-auto" style={{ backgroundColor: '#F5F7FB', fontFamily: 'Inter, system-ui, sans-serif' }}>
 
       {/* ── Top Header ── */}
-      <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div>
           <h1 className="text-xl font-bold text-gray-900">{getGreeting()}, {techName} 👋</h1>
           <p className="text-xs text-gray-400 mt-0.5">{todayStr}</p>
