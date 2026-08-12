@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import ApiService from '../api/apiService';
 import SashaChatPage from '../pages/SashaChatPage';
 import {
   LayoutDashboard, ClipboardList, Wrench, DollarSign, LogOut,
@@ -16,6 +17,28 @@ const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+
+  // Fetch vendor profile to get the correct business name
+  useEffect(() => {
+    ApiService.getVendorProfile().then(res => {
+      if (res.success && res.data) {
+        const name = res.data.vendorName || res.data.name || null;
+        setDisplayName(name);
+        // Also update stored user so name stays consistent
+        if (name) {
+          try {
+            const stored = JSON.parse(localStorage.getItem('user') || '{}');
+            if (stored && stored.vendorName !== name) {
+              stored.vendorName = name;
+              stored.name = name;
+              localStorage.setItem('user', JSON.stringify(stored));
+            }
+          } catch (_) {}
+        }
+      }
+    }).catch(() => {});
+  }, []);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -331,11 +354,11 @@ const Layout = () => {
         <div className="mt-auto p-4.5 border-t border-blue-900/40" style={{ backgroundColor: 'rgba(2, 6, 23, 0.2)' }}>
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center font-bold border border-blue-400/20 shrink-0 text-base shadow-inner" style={{ color: '#ffffff' }}>
-              {(user?.vendorName || user?.username || 'S').charAt(0).toUpperCase()}
+              {(displayName || user?.vendorName || user?.username || 'S').charAt(0).toUpperCase()}
             </div>
             <div className="flex-grow overflow-hidden">
               <div className="flex items-center gap-1.5">
-                <p className="text-sm font-semibold truncate" style={{ color: '#ffffff' }}>{user?.vendorName || user?.username || 'Technician'}</p>
+                <p className="text-sm font-semibold truncate" style={{ color: '#ffffff' }}>{displayName || user?.vendorName || user?.username || 'Technician'}</p>
               </div>
               <span className="text-xs truncate mt-1 block" style={{ color: '#94a3b8' }}>Technician</span>
             </div>

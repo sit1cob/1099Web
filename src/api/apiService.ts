@@ -8,7 +8,6 @@ import { AddPartToAssignmentRequest, PartResponse, AddedPartResponse, DeletePart
 import { RescheduleRequest, RescheduleResponse } from '../types/reschedule.types';
 import { VendorProfileResponse } from '../types/vendor.types';
 import { API_CONFIG, V2_API_CONFIG, APP_CONFIG } from '../utils/config';
-import { mockDb } from './mockData';
 import { trackApiError } from '../utils/clarityTracking';
 
 const TOKEN_ERROR_PATTERNS = [
@@ -41,6 +40,7 @@ const forceLogout = () => {
   localStorage.removeItem('user');
   logoutCallback?.();
 };
+
 
 // Set global defaults so every axios call (including direct ones) sends platform & version
 axios.defaults.headers.common['x-client-platform'] = APP_CONFIG.PLATFORM;
@@ -118,39 +118,17 @@ class ApiService {
   async login(request: LoginRequest): Promise<LoginResponse> {
     try {
       const response = await this.api.post<LoginResponse>('/api/auth/login', request);
+      console.log('[LOGIN] Raw API response:', JSON.stringify(response.data));
       return response.data;
-    } catch (error) {
-      console.warn("Live login failed, using mock credentials fallback:", error);
-      const mockUser = {
-        id: 'vendor-1',
-        username: request.username || 'sasha_1099',
-        name: request.username || 'test_vendor',
-        vendorName: 'Sasha Tech Solutions',
-        email: 'sasha.tech@searskairos.ai',
-        phone: '555-123-6789',
-        mobile: '555-019-2834',
-        role: 'registered_user',
-        tier: '',
-        isActive: true,
-        zipCodes: ['60179'],
-        addressLine1: '5407 Trillium Blvd',
-        city: 'Hoffman Estate',
-        state: 'IL',
-        zipCode: '60192'
-      };
-      const responseData: LoginResponse = {
-        success: true,
-        message: 'Logged in with mock fallback',
-        accessToken: 'mock-access-token-12345',
-        refreshToken: 'mock-refresh-token-12345',
-        user: mockUser,
-        data: {
-          accessToken: 'mock-access-token-12345',
-          refreshToken: 'mock-refresh-token-12345',
-          user: mockUser
-        }
+    } catch (error: any) {
+      console.error('Login failed:', error?.response?.status, error?.message);
+      return {
+        success: false,
+        message: error?.response?.data?.message || error?.message || 'Login failed. Please check your credentials.',
+        accessToken: '',
+        refreshToken: '',
+        user: null,
       } as any;
-      return responseData;
     }
   }
 
@@ -158,6 +136,8 @@ class ApiService {
     const accessToken = response.data?.accessToken || response.accessToken;
     const refreshToken = response.data?.refreshToken || response.refreshToken;
     const user = response.data?.user || response.user;
+    console.log('[saveAuthData] accessToken:', accessToken ? `${accessToken.substring(0, 20)}...` : 'NONE');
+    console.log('[saveAuthData] user:', user?.username || user?.vendorName || 'NONE');
     if (accessToken) localStorage.setItem('accessToken', accessToken);
     if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
     if (user) {
@@ -178,7 +158,7 @@ class ApiService {
   }
 
   getToken(): string | null {
-    return localStorage.getItem('accessToken') || 'mock-access-token-12345';
+    return localStorage.getItem('accessToken') || null;
   }
 
   getUser(): any {
@@ -196,37 +176,16 @@ class ApiService {
       const storedUser = this.getUser();
       const mapped: any = {
         ...raw,
+        name: (raw as any)?.vendorName || (raw as any)?.name || storedUser?.vendorName || null,
         vendorName: (raw as any)?.vendorName || (raw as any)?.name || storedUser?.vendorName || null,
         mobile: (raw as any)?.mobile || (raw as any)?.phone || (raw as any)?.contactNumber || null,
         email: (raw as any)?.email || (raw as any)?.emailAddress || (raw as any)?.contactEmail || storedUser?.email || null,
         countryCode: (raw as any)?.countryCode || 'US',
       };
       return { success: true, data: mapped };
-    } catch (error) {
-      console.warn('getVendorProfile API failed, falling back to mock.');
-      const storedUser = this.getUser();
-      return {
-        success: true,
-        data: {
-          id: storedUser?.id || 'vendor-1',
-          vendorName: storedUser?.vendorName || 'Sasha Tech Solutions',
-          email: storedUser?.email || '',
-          mobile: storedUser?.mobile || '555-019-2834',
-          tier: '',
-          addressLine1: '3333 Beverly Rd',
-          city: 'Hoffman Estates',
-          state: 'IL',
-          countryCode: 'US',
-          zipCode: '60192',
-          performance: {
-            rating: 4.85,
-            firstTimeFixRate: 92,
-            recallRate: 2.1,
-            professionalism: 98,
-            weeklyEarnings: 1250,
-          }
-        }
-      } as any;
+    } catch (error: any) {
+      console.error('getVendorProfile failed:', error?.response?.status, error?.message);
+      return { success: false, data: null } as any;
     }
   }
 
@@ -243,21 +202,9 @@ class ApiService {
         timeout: 5000,
       });
       return response.data;
-    } catch (error) {
-      console.warn('getFeedbackConfig failed, using mock fallback.');
-      return {
-        success: true,
-        data: {
-          _id: 'mock-feedback-config',
-          title: 'App Feedback',
-          isActive: true,
-          questions: [
-            { id: 'q1', _id: 'q1', question: 'How would you rate your overall experience with the app?', type: 'rating', options: [], required: true, order: 1 },
-            { id: 'q2', _id: 'q2', question: 'How satisfied are you with the app\'s performance?', type: 'rating', options: [], required: true, order: 2 },
-            { id: 'q3', _id: 'q3', question: 'Is there anything you\'d like us to improve or add in the app?', type: 'text', options: [], required: true, order: 3 },
-          ],
-        }
-      };
+    } catch (error: any) {
+      console.error('getFeedbackConfig failed:', error?.response?.status, error?.message);
+      return { success: false, data: null };
     }
   }
 
@@ -272,9 +219,9 @@ class ApiService {
         },
       });
       return response.data;
-    } catch (error) {
-      console.warn('submitFeedback failed, using mock fallback.');
-      return { success: true, data: { id: `fb-${Date.now()}`, userId: 'vendor-1', submittedAt: new Date().toISOString() }, message: 'Feedback submitted successfully' };
+    } catch (error: any) {
+      console.error('submitFeedback failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to submit feedback' };
     }
   }
 
@@ -282,17 +229,9 @@ class ApiService {
     try {
       const res = await this.api.patch('/api/vendors/me/address', payload);
       return res.data;
-    } catch (error) {
-      console.warn('updateVendorAddress failed, updating mock context.');
-      const user = this.getUser();
-      if (user) {
-        user.addressLine1 = payload.addressLine1;
-        user.city = payload.city;
-        user.state = payload.state;
-        user.zipCode = payload.zipCode;
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-      return { success: true, message: 'Mock address updated' };
+    } catch (error: any) {
+      console.error('updateVendorAddress failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to update address' };
     }
   }
 
@@ -301,80 +240,9 @@ class ApiService {
     try {
       const response = await this.v2Api.get<DashboardV2Response>('/api/vendors/me/dashboard', { params: { from, to } });
       return response.data;
-    } catch (error) {
-      console.warn('getDashboardV2 failed, using mock data fallback.');
-      const jobs = mockDb.getAssignments();
-      const available = mockDb.getAvailableJobs();
-      const parts = mockDb.getParts();
-      
-      const payload: DashboardV2Response = {
-        success: true,
-        data: {
-          status: 'success',
-          bottombar_job_count: String(jobs.length),
-          bottombar_parts_count: String(parts.length),
-          total_completed_jobs: String(jobs.filter(a => a.status === 'completed').length),
-          technician_email: 'sasha.tech@searskairos.ai',
-          tecnician_bonus_active: 'true',
-          todays_job: jobs.map((a: any) => ({
-            id: Number(a.id),
-            status: a.status,
-            soNumber: a.soNumber,
-            customerName: a.job.customerName,
-            customerAddress: a.job.customerAddress,
-            customerCity: a.job.customerCity,
-            customerState: a.job.customerState,
-            customerZip: a.job.customerZip,
-            customerPhone: a.job.customerPhone,
-            scheduledDate: a.scheduledDate,
-            applianceType: a.job.applianceType,
-            applianceCode: a.job.applianceCode || a.job.applianceType,
-            manufacturerBrand: a.job.manufacturerBrand,
-            serviceDescription: a.job.serviceDescription,
-            applianceModel: a.job.applianceModel,
-            applianceSerial: a.job.applianceSerial,
-          })),
-          available_jobs: available.map((j: any) => ({
-            id: Number(j.id.replace('avail-', '')),
-            soNumber: j.soNumber,
-            customerCity: j.city,
-            customerState: j.state,
-            customerZip: '60192',
-            scheduledDate: j.scheduledDate,
-            applianceType: j.appliance,
-            manufacturerBrand: j.brand,
-            status: 'available',
-          })),
-          data: {
-            technician_details: {
-              technician_name: 'Sasha Tech',
-              jobs_today_count: jobs.filter(a => a.status !== 'completed').length,
-              estimated_earnings_today: jobs.filter(a => a.status === 'completed').length * 150 + 100,
-              currency: 'USD',
-            },
-            tier: {
-              label: '',
-              score: 92,
-              icon: 'Award',
-              color: '#D4AF37',
-            },
-            performance_metrics: {
-              period: 'Last 30 Days',
-              customer_rating: { value: 4.85, change: 0.1, change_label: 'vs last month', trend: 'up' },
-              first_time_fix_rate: { value: 92, unit: '%', change: 2.5, change_label: 'vs last month', trend: 'up' },
-              recall_rate: { value: 2.1, unit: '%', change: -0.5, change_label: 'vs last month', trend: 'down', lower_is_better: true },
-              weekly_earnings: { value: 1250, currency: 'USD', change: 150, change_label: 'vs last month', trend: 'up' },
-            },
-            summary_cards: {
-              score: { value: 92, tier_label: '' },
-              rating: { value: 4.85, review_count: 47 },
-              parts: { on_order_count: parts.filter(p => p.status === 'Shipped').length, label: 'Parts on Order' },
-            },
-            recent_feedback: mockDb.getReviews()
-          }
-        }
-      } as any;
-      return payload;
+    } catch (error: any) {
+      console.error('getDashboardV2 failed:', error?.response?.status, error?.message);
+      return { success: false, data: null } as any;
     }
   }
 
@@ -395,23 +263,9 @@ class ApiService {
         }));
       }
       return raw;
-    } catch (error) {
-      console.warn('getAvailableJobs failed, using mock fallback.');
-      return {
-        success: true,
-        data: mockDb.getAvailableJobs().map(j => ({
-          id: Number(j.id.replace('avail-', '')),
-          soNumber: j.soNumber,
-          customerCity: j.city,
-          customerState: j.state,
-          customerZip: '60192',
-          scheduledDate: j.scheduledDate,
-          applianceType: j.appliance,
-          manufacturerBrand: j.brand,
-          pay: j.pay,
-          scheduledTimeWindow: j.scheduledTimeWindow
-        })) as any[]
-      };
+    } catch (error: any) {
+      console.error('getAvailableJobs failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] } as any;
     }
   }
 
@@ -419,33 +273,9 @@ class ApiService {
     try {
       const response = await this.api.get<JobDetailsResponse>(`/api/jobs/${jobId}`);
       return response.data;
-    } catch (error) {
-      console.warn('getJobDetails failed, using mock fallback.');
-      const avail = mockDb.getAvailableJobs().find(j => j.id === jobId || j.soNumber.includes(jobId));
-      const j = avail || mockDb.getAvailableJobs()[0];
-      return {
-        success: true,
-        data: {
-          id: Number(j.id.replace('avail-', '')),
-          soNumber: j.soNumber,
-          status: 'available',
-          job: {
-            id: j.id,
-            soNumber: j.soNumber,
-            customerName: 'Available Customer',
-            customerAddress: j.address,
-            customerCity: j.city,
-            customerState: j.state,
-            customerZip: '60192',
-            scheduledDate: j.scheduledDate,
-            scheduledTimeWindow: j.scheduledTimeWindow,
-            applianceType: j.appliance,
-            manufacturerBrand: j.brand,
-            serviceDescription: 'Claim this job to see more details.',
-            priority: false,
-          }
-        }
-      } as any;
+    } catch (error: any) {
+      console.error('getJobDetails failed:', error?.response?.status, error?.message);
+      return { success: false, data: null } as any;
     }
   }
 
@@ -453,19 +283,9 @@ class ApiService {
     try {
       const response = await this.api.post<ClaimResponse>(`/api/jobs/${jobId}/claims`, request);
       return response.data;
-    } catch (error) {
-      console.warn('claimJob failed, using mockDb.');
-      const list = mockDb.getAvailableJobs();
-      const j = list.find(item => String(item.id) === String(jobId) || item.soNumber.includes(jobId));
-      if (j) {
-        const result = mockDb.claimJob(j.soNumber);
-        return {
-          success: result.success,
-          message: 'Claimed successfully',
-          data: result.data
-        } as any;
-      }
-      return { success: false, message: 'Job not found in available list' } as any;
+    } catch (error: any) {
+      console.error('claimJob failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to claim job' } as any;
     }
   }
 
@@ -474,33 +294,9 @@ class ApiService {
     try {
       const response = await this.v2Api.get<AssignmentsListResponse>('/api/vendors/me/assignments');
       return response.data;
-    } catch (error) {
-      console.warn('getMyAssignments failed, returning mock assignments.');
-      return {
-        success: true,
-        data: mockDb.getAssignments().map(a => ({
-          id: a.id,
-          soNumber: a.soNumber,
-          status: a.status,
-          scheduledDate: a.scheduledDate,
-          scheduledArrival: a.scheduledArrival,
-          assignedAt: a.assignedAt,
-          job: {
-            id: a.job.id,
-            soNumber: a.job.soNumber,
-            customerName: a.job.customerName,
-            customerAddress: a.job.customerAddress,
-            customerCity: a.job.customerCity,
-            customerState: a.job.customerState,
-            customerZip: a.job.customerZip,
-            applianceType: a.job.applianceType,
-            applianceCode: a.job.applianceCode || a.job.applianceType,
-            manufacturerBrand: a.job.manufacturerBrand,
-            scheduledDate: a.job.scheduledDate,
-            priority: a.job.priority
-          }
-        }))
-      };
+    } catch (error: any) {
+      console.error('getMyAssignments failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -515,16 +311,9 @@ class ApiService {
         },
       });
       return response.data;
-    } catch (error) {
-      console.warn(`getAssignmentDetails for ${assignmentId} failed, using mock fallback.`);
-      const a = mockDb.getAssignment(assignmentId);
-      if (a) {
-        return {
-          success: true,
-          data: a
-        };
-      }
-      return { success: false, message: 'Assignment not found' };
+    } catch (error: any) {
+      console.error('getAssignmentDetails failed:', error?.response?.status, error?.message);
+      return { success: false, message: 'Failed to load assignment details' };
     }
   }
 
@@ -532,11 +321,9 @@ class ApiService {
     try {
       const response = await this.v2Api.get('/api/vendors/me/non-shs-jobs');
       return response.data;
-    } catch (error) {
-      return {
-        success: true,
-        data: mockDb.getNonShsJobs()
-      };
+    } catch (error: any) {
+      console.error('getNonShsJobs failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -554,8 +341,7 @@ class ApiService {
         message: error?.message,
         url: error?.config?.url,
       });
-      const res = mockDb.logNonShsJob(payload);
-      return { success: true, data: res.data };
+      return { success: false, message: error?.response?.data?.message || 'Failed to log non-SHS job' };
     }
   }
 
@@ -573,8 +359,7 @@ class ApiService {
         message: error?.message,
         url: error?.config?.url,
       });
-      const res = mockDb.updateNonShsJob(jobId, payload);
-      return { success: true, data: res.data };
+      return { success: false, message: error?.response?.data?.message || 'Failed to update non-SHS job' };
     }
   }
 
@@ -614,10 +399,9 @@ class ApiService {
         }
       );
       return response.data;
-    } catch (error) {
-      console.warn(`updateAssignmentStatus to ${status} failed, updating mockDb.`);
-      const res = mockDb.updateAssignmentStatus(assignmentId, status, options);
-      return { success: res.success, data: res.data };
+    } catch (error: any) {
+      console.error('updateAssignmentStatus failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to update status' };
     }
   }
 
@@ -652,10 +436,9 @@ class ApiService {
         }
       );
       return response.data;
-    } catch (error) {
-      console.warn(`updateAssignmentStatusV3 failed, updating mockDb.`);
-      const res = mockDb.updateAssignmentStatus(String(assignmentId), payload.status, payload);
-      return { success: res.success, data: res.data };
+    } catch (error: any) {
+      console.error('updateAssignmentStatusV3 failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to update status' };
     }
   }
 
@@ -666,16 +449,9 @@ class ApiService {
         headers: { Accept: 'application/json', Authorization: token ? `Bearer ${token}` : '' },
       });
       return response.data;
-    } catch (error) {
-      return {
-        success: true,
-        data: [
-          { code: 'CNH', description: 'Customer Not Home' },
-          { code: 'REFUSED', description: 'Customer Refused Service' },
-          { code: 'NO_PARTS', description: 'No Parts Available/Delayed' },
-          { code: 'DIAG_ONLY', description: 'Diagnosis Done, Parts Needed' }
-        ]
-      };
+    } catch (error: any) {
+      console.error('getServiceUpdateAttemptDescriptions failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -687,10 +463,9 @@ class ApiService {
         status: true, reason, additionalNote: notes, imageUrl,
       });
       return response.data;
-    } catch (error) {
-      console.warn('markCustomerNotHome failed, updating mockDb.');
-      mockDb.updateAssignmentStatus(assignmentId, 'rescheduled', { rescheduleReason: reason, completionNotes: notes });
-      return { success: true, message: 'Mock customer not home submitted' };
+    } catch (error: any) {
+      console.error('markCustomerNotHome failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to mark customer not home' };
     }
   }
 
@@ -710,18 +485,9 @@ class ApiService {
         }
       );
       return response.data;
-    } catch (error) {
-      console.warn('rescheduleAssignment failed, updating mockDb.');
-      const parts = request.requestedArrivalDate?.split('T') || [];
-      const newDate = parts[0] || '2026-06-05';
-      mockDb.updateAssignmentStatus(assignmentId, 'rescheduled', {
-        rescheduleReason: request.reasonCode || 'parts_delayed',
-        nextAppointment: newDate
-      });
-      return {
-        success: true,
-        message: 'Rescheduled successfully (mock)',
-      } as any;
+    } catch (error: any) {
+      console.error('rescheduleAssignment failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to reschedule' } as any;
     }
   }
 
@@ -730,10 +496,9 @@ class ApiService {
     try {
       const response = await this.v2Api.patch(`/api/assignments/${assignmentId}`, body);
       return { success: true, data: response.data };
-    } catch (error) {
-      console.warn('updateApplianceInfo failed, updating mockDb.');
-      const res = mockDb.updateAssignmentStatus(assignmentId, body.status || 'arrived', body);
-      return { success: true, data: res.data };
+    } catch (error: any) {
+      console.error('updateApplianceInfo failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to update appliance info' };
     }
   }
 
@@ -758,9 +523,9 @@ class ApiService {
         }
       );
       return { success: true, data: response.data };
-    } catch (error) {
-      console.warn('updateProductInfo failed, using mock fallback.');
-      return { success: true, data: body };
+    } catch (error: any) {
+      console.error('updateProductInfo failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to update product info' };
     }
   }
 
@@ -769,31 +534,9 @@ class ApiService {
     try {
       const response = await this.v2Api.post<PartResponse>(`/api/assignments/${assignmentId}/parts`, request);
       return response.data;
-    } catch (error) {
-      console.warn('addPart failed, adding mock part.');
-      const parts = mockDb.getParts();
-      const isDraft = request.draft === undefined ? true : request.draft;
-      const orderNo = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-      const newPart = {
-        id: `mock-part-${Date.now()}`,
-        orderId: `SO-${assignmentId}`,
-        partNumber: request.partNo || '13516',
-        quantity: request.quantity || 1,
-        brand: request.brand || 'Speed Queen',
-        partType: request.sourceType === 'hand' ? 'in-hand' as const : 'ordered' as const,
-        itemDescription: request.itemDescription || 'Added Part Description',
-        orderNo: orderNo,
-        isDraft: isDraft,
-        status: isDraft ? 'Draft' : 'Ordered',
-        price: request.price || 15.00,
-        date: new Date().toISOString().split('T')[0]
-      };
-      parts.push(newPart);
-      return {
-        success: true,
-        data: newPart as any,
-        message: 'Part added successfully'
-      };
+    } catch (error: any) {
+      console.error('addPart failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to add part' } as any;
     }
   }
 
@@ -849,21 +592,10 @@ class ApiService {
         });
       });
 
-      // Also merge any locally-added mock parts (from addPart fallback)
-      const allMockParts = mockDb.getParts();
-      const localParts = allMockParts.filter(p => p.orderId.includes(assignmentId) || p.id.includes(assignmentId));
-      const merged = [...combinedItems, ...localParts];
-      return { success: true, data: merged, message: payload.message || 'Part order details retrieved' };
-    } catch (error) {
-      console.warn('getAssignmentParts failed, getting mock parts for SO.');
-      const allParts = mockDb.getParts();
-      // filter parts by orderId = SO-id or parts that match the assignment ID
-      const matchingParts = allParts.filter(p => p.orderId.includes(assignmentId) || p.id.includes(assignmentId));
-      return {
-        success: true,
-        data: matchingParts,
-        message: 'Mock parts retrieved'
-      };
+      return { success: true, data: combinedItems, message: payload.message || 'Part order details retrieved' };
+    } catch (error: any) {
+      console.error('getAssignmentParts failed:', error?.response?.status, error?.message);
+      return { success: false, data: [], message: 'Failed to load parts' };
     }
   }
 
@@ -885,67 +617,9 @@ class ApiService {
         }
       );
       return response.data;
-    } catch (error) {
-      console.warn('getStatusByTrackingNo failed, using mock data fallback.');
-      
-      const trackingNumber = body.trackingNumber;
-      const isDelivered = trackingNumber === '782948290094' || trackingNumber.endsWith('0094') || trackingNumber.includes('delivered');
-      
-      const activities = isDelivered 
-        ? [
-            {
-              status: 'Delivered',
-              date: '2026-05-22',
-              time: '113000',
-              address: { city: 'Hoffman Estates', stateProvinceCode: 'IL' }
-            },
-            {
-              status: 'Out for Delivery',
-              date: '2026-05-22',
-              time: '080000',
-              address: { city: 'Hoffman Estates', stateProvinceCode: 'IL' }
-            },
-            {
-              status: 'In Transit',
-              date: '2026-05-21',
-              time: '221500',
-              address: { city: 'Chicago', stateProvinceCode: 'IL' }
-            },
-            {
-              status: 'Shipped',
-              date: '2026-05-20',
-              time: '143000',
-              address: { city: 'Dallas', stateProvinceCode: 'TX' }
-            }
-          ]
-        : [
-            {
-              status: 'In Transit',
-              date: '2026-05-21',
-              time: '221500',
-              address: { city: 'Chicago', stateProvinceCode: 'IL' }
-            },
-            {
-              status: 'Shipped',
-              date: '2026-05-20',
-              time: '143000',
-              address: { city: 'Dallas', stateProvinceCode: 'TX' }
-            }
-          ];
-
-      return {
-        success: true,
-        data: {
-          packages: [
-            {
-              trackingNo: trackingNumber,
-              activities: activities
-            }
-          ],
-          service: 'FedEx Ground',
-          pickUpDate: '2026-05-20'
-        }
-      };
+    } catch (error: any) {
+      console.error('getStatusByTrackingNo failed:', error?.response?.status, error?.message);
+      return { success: false, data: null };
     }
   }
 
@@ -956,18 +630,9 @@ class ApiService {
       const url = partId != null ? `${baseUrl}/parts/${partId}` : baseUrl;
       const response = await this.api.delete<DeletePartResponse>(url);
       return response.data || { success: true, message: 'Part deleted successfully' };
-    } catch (error) {
-      console.warn('deletePart failed, deleting from mock state.');
-      const parts = mockDb.getParts();
-      const index = parts.findIndex(p => 
-        String(p.id) === String(partId) || 
-        String(p.orderId) === String(orderId) ||
-        (String(p.orderId).includes(String(assignmentId)) && String(p.id) === String(partId))
-      );
-      if (index > -1) {
-        parts.splice(index, 1);
-      }
-      return { success: true, message: 'Mock part deleted' } as any;
+    } catch (error: any) {
+      console.error('deletePart failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to delete part' } as any;
     }
   }
 
@@ -977,22 +642,9 @@ class ApiService {
       if (!trimmed) throw new Error('Model number is required');
       const response = await this.api.get(`/api/assignments/${assignmentId}/models/search`, { params: { q: trimmed } });
       return response.data;
-    } catch (error) {
-      console.warn('searchModels failed, returning mock models.');
-      const list = [
-        {
-          modelId: 'm1',
-          modelNo: 'VA6013',
-          brand: 'Speed Queen',
-          category: 'Washing Machine',
-          applianceType: 'Washer',
-          imageUrl: 'https://images.unsplash.com/photo-1545173168-9f1907e80014?w=100&auto=format&fit=crop&q=60'
-        }
-      ];
-      return {
-        success: true,
-        data: list.filter(m => m.modelNo.toLowerCase().includes(modelNo.toLowerCase()))
-      };
+    } catch (error: any) {
+      console.error('searchModels failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -1001,40 +653,9 @@ class ApiService {
       if (!modelId) throw new Error('Model ID is required');
       const response = await this.api.get(`/api/assignments/${assignmentId}/models/${modelId}/parts`);
       return response.data;
-    } catch (error) {
-      console.warn('getModelParts failed, returning mock parts list.');
-      return {
-        success: true,
-        data: [
-          {
-            itemId: 'part-c1',
-            partNo: '13516',
-            name: 'CLUTCH OIL',
-            category: 'Laundry Appliances',
-            description: 'CLUTCH OIL FOR SPEED QUEEN WASHERS',
-            price: 18.50,
-            available: false
-          },
-          {
-            itemId: 'part-c2',
-            partNo: '13526',
-            name: 'Sealant',
-            category: 'Laundry Appliances',
-            description: 'High temp silicone sealant tub',
-            price: 14.95,
-            available: true
-          },
-          {
-            itemId: 'part-c3',
-            partNo: '14480',
-            name: 'Motor Wire Harness',
-            category: 'Laundry Appliances',
-            description: 'Speed Queen main motor wiring assembly',
-            price: 29.99,
-            available: true
-          }
-        ]
-      };
+    } catch (error: any) {
+      console.error('getModelParts failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -1044,41 +665,9 @@ class ApiService {
       if (!trimmed) throw new Error('Part number is required');
       const response = await this.v2Api.get('/api/assignments/parts/item-search', { params: { partNo: trimmed } });
       return response.data;
-    } catch (error) {
-      console.warn('searchPartsByPartNo failed, returning mock part search results.');
-      const mockList = [
-        {
-          itemId: 'part-c1',
-          partNo: '13516',
-          name: 'CLUTCH OIL',
-          category: 'Laundry Appliances',
-          description: 'CLUTCH OIL FOR SPEED QUEEN WASHERS',
-          price: 18.50,
-          available: false
-        },
-        {
-          itemId: 'part-c2',
-          partNo: '13526',
-          name: 'Sealant',
-          category: 'Laundry Appliances',
-          description: 'High temp silicone sealant tub',
-          price: 14.95,
-          available: true
-        },
-        {
-          itemId: 'part-c3',
-          partNo: '14480',
-          name: 'Motor Wire Harness',
-          category: 'Laundry Appliances',
-          description: 'Speed Queen main motor wiring assembly',
-          price: 29.99,
-          available: true
-        }
-      ];
-      return {
-        success: true,
-        data: mockList.filter(p => p.partNo.includes(partNo) || p.name.toLowerCase().includes(partNo.toLowerCase()))
-      };
+    } catch (error: any) {
+      console.error('searchPartsByPartNo failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -1086,9 +675,9 @@ class ApiService {
     try {
       const response = await this.api.get(`/api/assignments/${assignmentId}/orders`);
       return response.data;
-    } catch (error) {
-      console.warn('getOrders failed, returning empty orders.');
-      return { success: true, data: [] };
+    } catch (error: any) {
+      console.error('getOrders failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -1096,26 +685,9 @@ class ApiService {
     try {
       const response = await this.api.post(`/api/assignments/${assignmentId}/orders`, { items });
       return response.data;
-    } catch (error) {
-      console.warn('createOrder failed, simulating mock order creation.');
-      const allParts = mockDb.getParts();
-      items.forEach((item) => {
-        allParts.push({
-          id: `mock-part-${Date.now()}-${item.partNo}`,
-          orderId: `SO-${assignmentId}`,
-          partNumber: item.partNo,
-          quantity: item.quantity,
-          brand: 'Speed Queen',
-          partType: 'ordered',
-          itemDescription: item.partNo === '13516' ? 'CLUTCH OIL' : item.partNo === '13526' ? 'Sealant' : 'Motor Wire Harness',
-          orderNo: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
-          isDraft: true,
-          status: 'Draft',
-          price: item.partNo === '13516' ? 18.50 : item.partNo === '13526' ? 14.95 : 29.99,
-          date: new Date().toISOString().split('T')[0]
-        });
-      });
-      return { success: true, message: 'Draft order created (mock)' };
+    } catch (error: any) {
+      console.error('createOrder failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to create order' };
     }
   }
 
@@ -1123,9 +695,9 @@ class ApiService {
     try {
       const response = await this.api.patch(`/api/assignments/${assignmentId}/orders/${orderId}`, { items });
       return response.data;
-    } catch (error) {
-      console.warn('updateOrder failed, simulating mock order update.');
-      return { success: true, message: 'Order updated (mock)' };
+    } catch (error: any) {
+      console.error('updateOrder failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to update order' };
     }
   }
 
@@ -1133,16 +705,9 @@ class ApiService {
     try {
       const response = await this.api.post(`/api/assignments/${assignmentId}/orders/${orderId}/submit`);
       return response.data || { success: true, message: 'Order submitted successfully' };
-    } catch (error) {
-      console.warn('submitOrder failed, submitting mock order.');
-      const parts = mockDb.getParts();
-      parts.forEach(p => {
-        if (p.orderId.includes(assignmentId) || p.orderNo === orderId) {
-          p.isDraft = false;
-          p.status = 'Ordered';
-        }
-      });
-      return { success: true, message: 'Order submitted successfully (mock)' };
+    } catch (error: any) {
+      console.error('submitOrder failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to submit order' };
     }
   }
 
@@ -1151,18 +716,9 @@ class ApiService {
       const response = await this.api.get(`/api/assignments/${assignmentId}/orders`);
       const payload = response.data || {};
       return { success: true, data: Array.isArray(payload.data) ? payload.data : [] };
-    } catch (error) {
-      console.warn('getAssignmentOrders failed, returning mock orders.');
-      const orders = mockDb.getParts()
-        .filter(p => p.orderId.includes(assignmentId))
-        .map(p => ({
-          orderId: p.orderNo,
-          id: p.orderNo,
-          orderNumber: p.orderNo,
-          status: p.status,
-          items: [{ partNo: p.partNumber, quantity: p.quantity, brand: p.brand, itemDescription: p.itemDescription }]
-        }));
-      return { success: true, data: orders };
+    } catch (error: any) {
+      console.error('getAssignmentOrders failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -1183,18 +739,9 @@ class ApiService {
       const failedCount = results.filter(r => !r.success).length;
       const errors = results.filter(r => !r.success).map(r => r.error || '');
       return { success: failedCount === 0, totalOrders: orders.length, submittedCount, failedCount, errors };
-    } catch (error) {
-      console.warn('submitAllOrders failed, submitting all mock draft orders.');
-      const parts = mockDb.getParts();
-      let count = 0;
-      parts.forEach(p => {
-        if (p.orderId.includes(assignmentId) && p.isDraft) {
-          p.isDraft = false;
-          p.status = 'Ordered';
-          count++;
-        }
-      });
-      return { success: true, totalOrders: count, submittedCount: count, failedCount: 0, errors: [] };
+    } catch (error: any) {
+      console.error('submitAllOrders failed:', error?.response?.status, error?.message);
+      return { success: false, totalOrders: 0, submittedCount: 0, failedCount: 1, errors: [error?.message || 'Failed to submit orders'] };
     }
   }
 
@@ -1276,11 +823,9 @@ class ApiService {
         success: true,
         data: this.parsePartsResponse(response.data)
       };
-    } catch (error) {
-      return {
-        success: true,
-        data: mockDb.getParts().filter(p => p.partType === 'ordered')
-      };
+    } catch (error: any) {
+      console.error('getPartsTracking failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -1295,11 +840,9 @@ class ApiService {
         success: true,
         data: this.parsePartsResponse(response.data)
       };
-    } catch (error) {
-      return {
-        success: true,
-        data: mockDb.getParts().filter(p => p.partType === 'ordered' && p.status === 'Delivered')
-      };
+    } catch (error: any) {
+      console.error('getPartsHistory failed:', error?.response?.status, error?.message);
+      return { success: false, data: [] };
     }
   }
 
@@ -1307,19 +850,9 @@ class ApiService {
     try {
       const response = await this.v2Api.post(`/api/assignments/${assignmentId}/models/parts/available`, { parts });
       return response.data;
-    } catch (error) {
-      console.warn('checkPartsAvailability failed, using mock availability check.', error);
-      const availabilityResult = parts.map(p => ({
-        itemId: p.itemId,
-        partNo: p.partNo,
-        available: p.partNo !== '13516'
-      }));
-      return {
-        success: true,
-        data: {
-          parts: availabilityResult
-        }
-      };
+    } catch (error: any) {
+      console.error('checkPartsAvailability failed:', error?.response?.status, error?.message);
+      return { success: false, data: null };
     }
   }
 
@@ -1327,8 +860,9 @@ class ApiService {
     try {
       const response = await this.api.post(`/api/assignments/${assignmentId}/parts/dispositions`, { dispositions });
       return response.data;
-    } catch (error) {
-      return { success: true, message: 'Disposition submitted (mock)' };
+    } catch (error: any) {
+      console.error('submitPartDisposition failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to submit disposition' };
     }
   }
 
@@ -1342,17 +876,9 @@ class ApiService {
         { headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' } }
       );
       return response.data;
-    } catch (error) {
-      return {
-        success: true,
-        data: {
-          tokens: [{
-            token: 'mock-photo-token-123',
-            uploadUrl: 'https://mock-s3-upload-url.com',
-            uploadFields: { key: 'mock-s3-key' }
-          }]
-        }
-      };
+    } catch (error: any) {
+      console.error('getCompletionPhotoUploadToken failed:', error?.response?.status, error?.message);
+      return { success: false, data: null };
     }
   }
 
@@ -1364,8 +890,9 @@ class ApiService {
       });
       formData.append('file', file);
       await fetch(uploadUrl, { method: 'POST', body: formData });
-    } catch (error) {
-      console.warn('uploadPhotoToS3 failed, simulating success in mock.');
+    } catch (error: any) {
+      console.error('uploadPhotoToS3 failed:', error?.message);
+      throw error;
     }
   }
 
@@ -1378,8 +905,9 @@ class ApiService {
         { headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' } }
       );
       return response.data;
-    } catch (error) {
-      return { success: true, message: 'Photo tokens consumed (mock)' };
+    } catch (error: any) {
+      console.error('consumePhotoTokens failed:', error?.response?.status, error?.message);
+      return { success: false, message: 'Failed to consume photo tokens' };
     }
   }
 
@@ -1391,9 +919,9 @@ class ApiService {
       const uploadToken = tokens[0];
       await this.uploadPhotoToS3(uploadToken.uploadUrl, uploadToken.uploadFields, file);
       return this.consumePhotoTokens(assignmentId, [uploadToken.token]);
-    } catch (error) {
-      console.warn('uploadCompletionPhoto failed, simulating success in mock.');
-      return { success: true, url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=200' };
+    } catch (error: any) {
+      console.error('uploadCompletionPhoto failed:', error?.message);
+      return { success: false, message: 'Failed to upload photo' };
     }
   }
 
@@ -1403,13 +931,17 @@ class ApiService {
       const response = await this.v2Api.get('/api/vendors/me/invoices/summary', {
         params: { from, to, group_by: 'day', include_bonus: 'true' },
       });
-      return response.data;
+      const payload = response.data;
+      // Normalize: API may return { success, data } or raw data
+      if (payload?.success !== undefined) return payload;
+      return { success: true, data: payload };
     } catch (error: any) {
-      throw new Error(
-        error?.response?.data?.message ||
-        error?.message ||
-        'Failed to load earnings summary'
-      );
+      console.error('[getVendorInvoiceSummary] Failed:', error?.response?.status, error?.message);
+      return {
+        success: false,
+        message: error?.response?.data?.message || error?.message || 'Failed to load earnings summary',
+        data: null,
+      };
     }
   }
 }

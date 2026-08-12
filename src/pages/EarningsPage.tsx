@@ -35,30 +35,45 @@ const EarningsPage = () => {
   const [earningsData, setEarningsData] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load Invoice Summary from API
-  useEffect(() => {
-    const loadEarnings = async () => {
-      setIsLoading(true);
-      try {
-        const today = new Date();
-        const to = today.toISOString().slice(0, 10);
-        // Start from January 1st of the current year to ensure YTD trend is loaded
-        const from = `${today.getFullYear()}-01-01`;
-        const res = await ApiService.getVendorInvoiceSummary(from, to);
-        if (res?.success && res.data) {
-          setEarningsData(res.data);
-        } else {
-          setEarningsData(null);
-        }
-      } catch (err) {
-        console.error('Error fetching earnings:', err);
-        setEarningsData(null);
-      } finally {
-        setIsLoading(false);
+  // Load Invoice Summary from API with date range based on active tab
+  const loadEarnings = async (tab: Tab) => {
+    setIsLoading(true);
+    try {
+      const today = new Date();
+      const to = today.toISOString().slice(0, 10);
+      let from: string;
+
+      if (tab === 'today') {
+        from = to;
+      } else if (tab === 'week') {
+        const dayOfWeek = today.getDay();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+        from = monday.toISOString().slice(0, 10);
+      } else if (tab === 'month') {
+        from = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+      } else {
+        // YTD
+        from = `${today.getFullYear()}-01-01`;
       }
-    };
-    loadEarnings();
-  }, []);
+
+      const res = await ApiService.getVendorInvoiceSummary(from, to);
+      if (res?.success && res.data) {
+        setEarningsData(res.data);
+      } else {
+        setEarningsData(null);
+      }
+    } catch (err) {
+      console.error('Error fetching earnings:', err);
+      setEarningsData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadEarnings(activeTab);
+  }, [activeTab]);
 
   // Tab switch navigator
   const handleTabSwitch = (tab: Tab) => {
