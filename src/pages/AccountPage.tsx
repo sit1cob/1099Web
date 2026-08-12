@@ -341,7 +341,7 @@ const AccountPage = () => {
       {isEditingAddress && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md shadow-2xl p-6 text-gray-700">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Edit Service Address</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Edit Firm Address</h3>
             
             <form onSubmit={handleUpdateAddress} className="space-y-4">
               <div>

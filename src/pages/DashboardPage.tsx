@@ -74,7 +74,7 @@ const DashboardPage = () => {
   const pipelineTotal = assignedN + inProgressN + completedN;
   const lifetimeRate  = completedN > 0 ? Math.min(Math.round((completedN / Math.max(pipelineTotal, completedN)) * 100), 100) : 96;
 
-  const techName = d?.technician_details?.technician_name || vendor?.name || vendor?.vendorName || user?.vendorName || user?.username || 'Technician';
+  const techName = vendor?.vendorName || vendor?.name || user?.username || 'Technician';
   const initials  = techName.charAt(0).toUpperCase();
   const todayStr  = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
