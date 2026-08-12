@@ -7,7 +7,7 @@ import { AssignmentsListResponse } from '../types/assignments.types';
 import { AddPartToAssignmentRequest, PartResponse, AddedPartResponse, DeletePartResponse } from '../types/parts.types';
 import { RescheduleRequest, RescheduleResponse } from '../types/reschedule.types';
 import { VendorProfileResponse } from '../types/vendor.types';
-import { API_CONFIG, V2_API_CONFIG } from '../utils/config';
+import { API_CONFIG, V2_API_CONFIG, APP_CONFIG } from '../utils/config';
 import { mockDb } from './mockData';
 import { trackApiError } from '../utils/clarityTracking';
 
@@ -42,6 +42,10 @@ const forceLogout = () => {
   logoutCallback?.();
 };
 
+// Set global defaults so every axios call (including direct ones) sends platform & version
+axios.defaults.headers.common['x-client-platform'] = APP_CONFIG.PLATFORM;
+axios.defaults.headers.common['x-client-version'] = APP_CONFIG.VERSION;
+
 class ApiService {
   private api: AxiosInstance;
   private v2Api: AxiosInstance;
@@ -65,6 +69,8 @@ class ApiService {
 
   private setupInterceptors(client: AxiosInstance): void {
     client.interceptors.request.use(async (config) => {
+      config.headers['x-client-platform'] = APP_CONFIG.PLATFORM;
+      config.headers['x-client-version'] = APP_CONFIG.VERSION;
       const isLoginEndpoint = config.url?.includes('/api/auth/login');
       if (!isLoginEndpoint) {
         const rawToken = localStorage.getItem('accessToken');
