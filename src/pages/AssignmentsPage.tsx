@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { trackMarkArrived, trackApplianceUpdated, trackReschedule, trackPartsOrdered, trackPartAdded, trackJobCompleted, trackJobClaimed, trackPartDeleted, trackStatusChange, trackSOClaimed, trackSOCompleted, trackSOCustomerNotHome, trackSOCancelled, trackSOEstimateDeclined, trackSORescheduled, trackSOViewed, trackSOInProgress } from '../utils/clarityTracking';
@@ -12,6 +13,7 @@ import {
   Copy, Refrigerator, ArrowLeft, User, FileText, Package, ExternalLink,
   ChevronLeft, Truck, MessageSquare, Pencil
 } from 'lucide-react';
+import AppliancePhotoUploader, { AppliancePhotoUploaderHandle } from '../components/AppliancePhotoUploader';
 
 
 import { RESCHEDULE_REASONS } from '../types/reschedule.types';
@@ -159,8 +161,17 @@ const AssignmentsPage = () => {
     model: '',
     serial: '',
     issue: '',
-    scanning: false
+    scanning: false,
   });
+  const photoUploaderRef = useRef<AppliancePhotoUploaderHandle>(null);
+  const [reschedulePhoto, setReschedulePhoto] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
+  const [rescheduleWarning, setRescheduleWarning] = useState<string | null>(null);
+  const reschedulePhotoInputRef = useRef<HTMLInputElement>(null);
+  const [completionPhoto, setCompletionPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [completeSubmitting, setCompleteSubmitting] = useState(false);
+  const [completeWarnings, setCompleteWarnings] = useState<string[]>([]);
+  const completionPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const [rescheduleForm, setRescheduleForm] = useState({
     step: 1,
@@ -618,17 +629,22 @@ const AssignmentsPage = () => {
     }
   };
 
+  const closeApplianceDrawer = () => {
+    setShowApplianceDrawer(false);
+  };
+
   // Scan Appliance details (OCR simulation)
   const handleScanAppliance = () => {
     setApplianceForm(prev => ({ ...prev, scanning: true }));
     setTimeout(() => {
-      setApplianceForm({
+      setApplianceForm(prev => ({
+        ...prev,
         brand: 'Speed Queen',
         model: 'VA6013',
         serial: 'SQ98402948',
         issue: 'Washing machine clutch slipping and leaking fluid',
-        scanning: false
-      });
+        scanning: false,
+      }));
     }, 1500);
   };
 
@@ -636,6 +652,10 @@ const AssignmentsPage = () => {
     e.preventDefault();
     if (!selectedId) return;
     try {
+      /* Upload photos first (sequentially), then save appliance info */
+      if (photoUploaderRef.current?.hasPhotos()) {
+        await photoUploaderRef.current.uploadAll();
+      }
       const assignmentNumId = Number(activeJobDetails?.id) || Number(String(selectedId).replace(/\D/g, '')) || 0;
       await ApiService.updateProductInfo(assignmentNumId, {
         brand: applianceForm.brand,
@@ -643,7 +663,6 @@ const AssignmentsPage = () => {
         serialNumber: applianceForm.serial,
         issue: applianceForm.issue,
       });
-      // Update local state so UI reflects changes
       setAssignments(prev => prev.map(a => {
         if (String(a.id) === String(selectedId)) {
           return {
@@ -660,10 +679,39 @@ const AssignmentsPage = () => {
         return a;
       }));
       trackApplianceUpdated(selectedId);
-      setShowApplianceDrawer(false);
+      closeApplianceDrawer();
     } catch (e) {
       console.error(e);
     }
+  };
+
+  /* Shared S3 upload helper — Steps 1→2→3 */
+  const uploadToS3WithToken = async (assignmentId: string, file: File, fileName: string, mimeType: string): Promise<void> => {
+    const tokenRes = await ApiService.getCompletionPhotoUploadToken(assignmentId, fileName, mimeType);
+    const tokenEntry = tokenRes?.data?.tokens?.[0];
+    if (!tokenEntry) throw new Error('No upload token received');
+    const { token, uploadUrl, uploadFields } = tokenEntry;
+    const formData = new FormData();
+    Object.entries(uploadFields as Record<string, string>).forEach(([k, v]) => formData.append(k, v));
+    formData.append('file', file);
+    await axios.post(uploadUrl, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    await ApiService.consumePhotoTokens(assignmentId, [token]);
+  };
+
+  const handleCompletionPhotoSelect = (files: FileList | null) => {
+    if (!files || !files[0]) return;
+    const file = files[0];
+    if (completionPhoto) URL.revokeObjectURL(completionPhoto.previewUrl);
+    setCompletionPhoto({ file, previewUrl: URL.createObjectURL(file) });
+    setCompleteForm(prev => ({ ...prev, photoUploaded: true }));
+  };
+
+  const handleReschedulePhotoSelect = (files: FileList | null) => {
+    if (!files || !files[0]) return;
+    const file = files[0];
+    if (reschedulePhoto) URL.revokeObjectURL(reschedulePhoto.previewUrl);
+    setReschedulePhoto({ file, previewUrl: URL.createObjectURL(file) });
+    setRescheduleWarning(null);
   };
 
   // Reschedule wizard flow
@@ -673,7 +721,18 @@ const AssignmentsPage = () => {
 
   const handleConfirmReschedule = async () => {
     if (!selectedId) return;
+    setRescheduleSubmitting(true);
+    setRescheduleWarning(null);
     try {
+      /* Photo upload — fire-and-forget */
+      if (reschedulePhoto) {
+        try {
+          await uploadToS3WithToken(selectedId, reschedulePhoto.file, `customer_not_home_${Date.now()}.jpg`, 'image/jpeg');
+        } catch {
+          setRescheduleWarning('Photo upload failed — proceeding with reschedule anyway.');
+        }
+      }
+
       const formattedDate = `${rescheduleForm.selectedDate}T${rescheduleForm.selectedTimeSlot.includes('8:00') ? '08:00' : rescheduleForm.selectedTimeSlot.includes('12:00') ? '12:00' : '16:00'}:00.000Z`;
       await ApiService.rescheduleAssignment(selectedId, {
         reasonCode: rescheduleForm.reason,
@@ -681,7 +740,9 @@ const AssignmentsPage = () => {
         notes: rescheduleForm.notes,
         source: 'vendor_portal'
       });
-      
+
+      if (reschedulePhoto) URL.revokeObjectURL(reschedulePhoto.previewUrl);
+      setReschedulePhoto(null);
       trackReschedule(selectedId);
       trackSORescheduled(selectedId, rescheduleForm.reason);
       setShowRescheduleWizard(false);
@@ -701,6 +762,8 @@ const AssignmentsPage = () => {
       loadData();
     } catch (e) {
       console.error(e);
+    } finally {
+      setRescheduleSubmitting(false);
     }
   };
 
@@ -1043,77 +1106,74 @@ const AssignmentsPage = () => {
   const handleCompleteJob = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedId) return;
+
+    const normalizeCT = (v: string) => (v || '').trim().toLowerCase().replace(/\u2013|\u2014/g, '-').replace(/\s+/g, ' ');
+    const ctType = normalizeCT(completeForm.completionType);
+    const isCompleteRescheduled = ctType.includes('rescheduled');
+    const isCompleteCNH = ctType === 'customer not home';
+    const isCompleteCancelAtDoor = ctType === 'cancel at door';
+    const isCompleteEstimateDeclined = ctType === 'estimate declined';
+    const isCompleteCompleted = ctType === 'completed';
+    const isCustomerAcknowledgeRequired = isCompleteCompleted || isCompleteEstimateDeclined;
+    const isSignatureRequired = isCustomerAcknowledgeRequired;
+
+    /* Validations */
+    if (isCompleteRescheduled && !completeForm.rescheduleReason) { alert('Reschedule reason is required'); return; }
+    if (isCompleteRescheduled && !completeForm.nextAppointment) { alert('Next appointment is required'); return; }
+    if (isCompleteCNH && !completeForm.cnhReason) { alert('Customer Not Home reason is required'); return; }
+    if (isCompleteCancelAtDoor && !completeForm.cancelReason) { alert('Cancel reason is required'); return; }
+    if (isCompleteEstimateDeclined && !completeForm.estimateDeclineReason) { alert('Estimate decline reason is required'); return; }
+    if (!completionPhoto) { alert('Please upload a repair photo before submitting.'); return; }
+    if (isCustomerAcknowledgeRequired && !completeForm.acknowledged) { alert('Customer acknowledgment is required'); return; }
+    if (isSignatureRequired && !hasSignature) { alert('Customer signature is required'); return; }
+
+    setCompleteSubmitting(true);
+    setCompleteWarnings([]);
+    const warnings: string[] = [];
+
     try {
-      const normalizeCT = (v: string) => (v || '').trim().toLowerCase().replace(/\u2013|\u2014/g, '-').replace(/\s+/g, ' ');
-      const ctType = normalizeCT(completeForm.completionType);
-      const isCompleteRescheduled = ctType.includes('rescheduled');
-      const isCompleteCNH = ctType === 'customer not home';
-      const isCompleteCancelAtDoor = ctType === 'cancel at door';
-      const isCompleteEstimateDeclined = ctType === 'estimate declined';
-      const isCompleteCompleted = ctType === 'completed';
-
-      const isCustomerAcknowledgeRequired = isCompleteCompleted || isCompleteEstimateDeclined;
-      const isSignatureRequired = isCustomerAcknowledgeRequired;
-      const isPhotoRequired = true;
-
-      if (isCompleteRescheduled && !completeForm.rescheduleReason) {
-        alert('Reschedule reason is required');
-        return;
-      }
-      if (isCompleteRescheduled && !completeForm.nextAppointment) {
-        alert('Next appointment is required');
-        return;
-      }
-      if (isCompleteCNH && !completeForm.cnhReason) {
-        alert('Customer Not Home reason is required');
-        return;
-      }
-      if (isCompleteCancelAtDoor && !completeForm.cancelReason) {
-        alert('Cancel reason is required');
-        return;
-      }
-      if (isCompleteEstimateDeclined && !completeForm.estimateDeclineReason) {
-        alert('Estimate decline reason is required');
-        return;
-      }
-      if (!completeForm.photoUploaded) {
-        alert('Please upload a repair photo before submitting.');
-        return;
-      }
-      if (isCustomerAcknowledgeRequired && !completeForm.acknowledged) {
-        alert('Customer acknowledgment is required');
-        return;
-      }
-      if (isSignatureRequired && !hasSignature) {
-        alert('Customer signature is required');
-        return;
+      /* Phase 1 — Upload signature (non-blocking) */
+      let signatureDataUrl: string | undefined;
+      if (isSignatureRequired && hasSignature && canvasRef.current) {
+        try {
+          signatureDataUrl = canvasRef.current.toDataURL('image/png');
+          const sigRes = await fetch(signatureDataUrl);
+          const sigBlob = await sigRes.blob();
+          const sigFile = new File([sigBlob], `signature_bitmap_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`, { type: 'image/png' });
+          await uploadToS3WithToken(selectedId, sigFile, sigFile.name, 'image/png');
+        } catch {
+          warnings.push('Signature upload failed — proceeding anyway.');
+        }
       }
 
+      /* Phase 2 — Upload completion photo (non-blocking) */
+      if (completionPhoto) {
+        try {
+          await uploadToS3WithToken(selectedId, completionPhoto.file, `completion_photo_${Date.now()}.jpg`, 'image/jpeg');
+        } catch {
+          warnings.push('Completion photo upload failed — proceeding anyway.');
+        }
+      }
+
+      if (warnings.length > 0) setCompleteWarnings(warnings);
+
+      /* Phase 3 — PATCH to complete job */
       const payload: any = {
         status: 'completed',
         serviceAttemptType: completeForm.repairType,
         completionNotes: completeForm.notes,
         completionType: completeForm.completionType,
         repairCode: completeForm.repairCode,
-        customerAcknowledged: isCustomerAcknowledgeRequired ? completeForm.acknowledged : false
+        customerAcknowledged: isCustomerAcknowledgeRequired ? completeForm.acknowledged : false,
       };
-
-      if (isCompleteRescheduled) {
-        payload.rescheduleReason = completeForm.rescheduleReason;
-        payload.nextAppointment = completeForm.nextAppointment;
-      }
-      if (isCompleteCNH) {
-        payload.cnhReason = completeForm.cnhReason;
-      }
-      if (isCompleteCancelAtDoor) {
-        payload.cancelReason = completeForm.cancelReason;
-      }
-      if (isCompleteEstimateDeclined) {
-        payload.estimateDeclineReason = completeForm.estimateDeclineReason;
-      }
+      if (signatureDataUrl) payload.customerSignature = signatureDataUrl;
+      if (isCompleteRescheduled) { payload.rescheduleReason = completeForm.rescheduleReason; payload.nextAppointment = completeForm.nextAppointment; }
+      if (isCompleteCNH) payload.cnhReason = completeForm.cnhReason;
+      if (isCompleteCancelAtDoor) payload.cancelReason = completeForm.cancelReason;
+      if (isCompleteEstimateDeclined) payload.estimateDeclineReason = completeForm.estimateDeclineReason;
 
       await ApiService.updateAssignmentStatusV3(selectedId, payload);
-      // Track specific funnel terminal state
+
       if (isCompleteCompleted) trackSOCompleted(selectedId, completeForm.completionType);
       else if (isCompleteRescheduled) trackSORescheduled(selectedId, completeForm.rescheduleReason);
       else if (isCompleteCNH) trackSOCustomerNotHome(selectedId);
@@ -1121,8 +1181,9 @@ const AssignmentsPage = () => {
       else if (isCompleteEstimateDeclined) trackSOEstimateDeclined(selectedId);
       else trackSOCompleted(selectedId, completeForm.completionType);
 
+      if (completionPhoto) URL.revokeObjectURL(completionPhoto.previewUrl);
+      setCompletionPhoto(null);
       setShowCompleteModal(false);
-      // Reset form
       setCompleteForm({
         completionType: 'Completed',
         repairType: 'Service Attempt',
@@ -1144,6 +1205,8 @@ const AssignmentsPage = () => {
       loadData();
     } catch (e) {
       console.error(e);
+    } finally {
+      setCompleteSubmitting(false);
     }
   };
 
@@ -2371,7 +2434,7 @@ const AssignmentsPage = () => {
               <Wrench className="h-5 w-5 text-blue-500" />
               <span>Appliance Specification Details</span>
             </h3>
-            <button onClick={() => setShowApplianceDrawer(false)} className="text-gray-500 hover:text-gray-900 cursor-pointer"><X className="h-5 w-5" /></button>
+            <button onClick={closeApplianceDrawer} className="text-gray-500 hover:text-gray-900 cursor-pointer"><X className="h-5 w-5" /></button>
           </div>
 
           <form onSubmit={handleSaveAppliance} className="flex-grow flex flex-col justify-between overflow-hidden">
@@ -2449,12 +2512,21 @@ const AssignmentsPage = () => {
                   className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-blue-500 resize-none"
                 />
               </div>
+
+              {/* Appliance Photos */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Appliance Photos</label>
+                <AppliancePhotoUploader
+                  ref={photoUploaderRef}
+                  assignmentId={String(selectedId)}
+                />
+              </div>
             </div>
 
             <div className="p-6 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowApplianceDrawer(false)}
+                onClick={closeApplianceDrawer}
                 className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
               >
                 Cancel
@@ -2510,22 +2582,39 @@ const AssignmentsPage = () => {
 
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Service Photo Proof (Optional)</label>
-                    <div className="mt-1.5 border border-dashed border-gray-300 hover:border-blue-400 bg-gray-50/60 rounded-xl p-6 text-center cursor-pointer">
-                      {rescheduleForm.photoUploaded ? (
-                        <div className="flex flex-col items-center gap-1.5">
-                          <Check className="h-6 w-6 text-emerald-400" />
-                          <p className="text-xs text-gray-600 font-semibold">Reschedule proof photo uploaded</p>
+                    {rescheduleWarning && (
+                      <div className="mt-2 flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                        <p className="text-xs text-amber-700">{rescheduleWarning}</p>
+                      </div>
+                    )}
+                    <div
+                      className="mt-1.5 border border-dashed border-gray-300 hover:border-blue-400 bg-gray-50/60 rounded-xl p-5 text-center cursor-pointer transition-colors"
+                      onClick={() => reschedulePhotoInputRef.current?.click()}
+                    >
+                      {reschedulePhoto ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <img
+                            src={reschedulePhoto.previewUrl}
+                            alt="Reschedule proof"
+                            className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                          />
+                          <p className="text-xs text-emerald-600 font-semibold">Photo selected — tap to replace</p>
                         </div>
                       ) : (
-                        <div 
-                          onClick={() => setRescheduleForm(prev => ({ ...prev, photoUploaded: true }))}
-                          className="flex flex-col items-center gap-2"
-                        >
+                        <div className="flex flex-col items-center gap-2">
                           <Camera className="h-6 w-6 text-gray-400" />
                           <p className="text-xs text-gray-500">Click to upload location photo (appliance bar code / street view)</p>
                         </div>
                       )}
                     </div>
+                    <input
+                      ref={reschedulePhotoInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={e => { handleReschedulePhotoSelect(e.target.files); e.target.value = ''; }}
+                    />
                   </div>
 
                   <div>
@@ -2645,10 +2734,12 @@ const AssignmentsPage = () => {
                 ) : (
                   <button
                     type="button"
+                    disabled={rescheduleSubmitting}
                     onClick={handleConfirmReschedule}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
                   >
-                    Confirm Reschedule
+                    {rescheduleSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {rescheduleSubmitting ? 'Submitting...' : 'Confirm Reschedule'}
                   </button>
                 )}
               </div>
@@ -3182,24 +3273,43 @@ const AssignmentsPage = () => {
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                       Upload Repair Photo *
                     </label>
-                    <div className={`border border-dashed ${isPhotoRequired && !completeForm.photoUploaded ? 'border-red-300 bg-red-50/40' : 'border-gray-300 hover:border-blue-400 bg-gray-50/60'} rounded-xl p-4 text-center cursor-pointer`}>
-                      {completeForm.photoUploaded ? (
-                        <div className="flex flex-col items-center gap-1">
-                          <Check className="h-5 w-5 text-emerald-400" />
-                          <p className="text-[11px] text-gray-600 font-semibold">Repair validation photo uploaded</p>
+                    {completeWarnings.length > 0 && (
+                      <div className="space-y-1.5 mb-2">
+                        {completeWarnings.map((w, i) => (
+                          <div key={i} className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            <p className="text-[10px] text-amber-700">{w}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div
+                      className={`border border-dashed ${!completionPhoto ? 'border-red-300 bg-red-50/40' : 'border-gray-300 bg-gray-50/60'} hover:border-blue-400 rounded-xl p-4 text-center cursor-pointer transition-colors`}
+                      onClick={() => completionPhotoInputRef.current?.click()}
+                    >
+                      {completionPhoto ? (
+                        <div className="flex flex-col items-center gap-1.5">
+                          <img
+                            src={completionPhoto.previewUrl}
+                            alt="Completion photo"
+                            className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                          />
+                          <p className="text-[10px] text-emerald-600 font-semibold">Photo selected — tap to replace</p>
                         </div>
                       ) : (
-                        <div 
-                          onClick={() => setCompleteForm(prev => ({ ...prev, photoUploaded: true }))}
-                          className="flex flex-col items-center gap-1.5"
-                        >
+                        <div className="flex flex-col items-center gap-1.5">
                           <Camera className="h-5 w-5 text-gray-400" />
-                          <p className="text-[10px] text-gray-500">
-                            {isPhotoRequired ? 'Click to upload REQUIRED photo' : 'Click to upload completed resolution photo'}
-                          </p>
+                          <p className="text-[10px] text-gray-500">Click to upload REQUIRED photo</p>
                         </div>
                       )}
                     </div>
+                    <input
+                      ref={completionPhotoInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={e => { handleCompletionPhotoSelect(e.target.files); e.target.value = ''; }}
+                    />
                   </div>
 
                   <div>
@@ -3277,9 +3387,11 @@ const AssignmentsPage = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                    disabled={completeSubmitting}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-semibold rounded-lg text-xs transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
                   >
-                    Submit Completion Audit
+                    {completeSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {completeSubmitting ? 'Submitting...' : 'Submit Completion Audit'}
                   </button>
                 </div>
 

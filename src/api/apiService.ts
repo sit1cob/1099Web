@@ -624,6 +624,7 @@ class ApiService {
       completionType: string;
       repairCode: string;
       customerAcknowledged: boolean;
+      customerSignature?: string;
       rescheduleReason?: string;
       nextAppointment?: string;
       cnhReason?: string;
