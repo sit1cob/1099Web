@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../api/apiService';
+import { APP_CONFIG } from '../utils/config';
 import { trackFeedbackSubmitted, trackTechnicianProfile } from '../utils/clarityTracking';
 import { 
   User, Settings, Award, Star, MapPin, Mail, Phone, 
@@ -150,7 +151,7 @@ const AccountPage = () => {
       const answers = Object.keys(feedbackAnswers).map(key => ({ questionId: key, answer: feedbackAnswers[key] }));
       const res = await ApiService.submitFeedback({
         metadata: {
-          appVersion: '2.0.5',
+          appVersion: APP_CONFIG.VERSION,
           deviceModel: navigator.userAgent.slice(0, 50),
           osVersion: navigator.platform,
           timestamp: new Date().toISOString(),

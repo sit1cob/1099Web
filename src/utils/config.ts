@@ -9,6 +9,7 @@ export const V2_API_CONFIG = {
 };
 
 export const APP_CONFIG = {
-  VERSION: '2.0.5',
+  VERSION: '2.0.7',
+  PLATFORM: 'web',
   APP_NAME: '1099 FieldForce Web',
 };
