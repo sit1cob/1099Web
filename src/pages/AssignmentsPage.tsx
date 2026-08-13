@@ -733,12 +733,10 @@ const AssignmentsPage = () => {
         }
       }
 
-      const formattedDate = `${rescheduleForm.selectedDate}T${rescheduleForm.selectedTimeSlot.includes('8:00') ? '08:00' : rescheduleForm.selectedTimeSlot.includes('12:00') ? '12:00' : '16:00'}:00.000Z`;
       await ApiService.rescheduleAssignment(selectedId, {
-        reasonCode: rescheduleForm.reason,
-        requestedArrivalDate: formattedDate,
+        reason: rescheduleForm.reason,
+        newScheduledDate: rescheduleForm.selectedDate,
         notes: rescheduleForm.notes,
-        source: 'vendor_portal'
       });
 
       if (reschedulePhoto) URL.revokeObjectURL(reschedulePhoto.previewUrl);

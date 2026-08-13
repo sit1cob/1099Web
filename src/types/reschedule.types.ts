@@ -1,10 +1,7 @@
 export interface RescheduleRequest {
-  reason?: string;
-  newScheduledDate?: string;
+  reason: string;
+  newScheduledDate: string;
   notes?: string;
-  reasonCode?: string;
-  requestedArrivalDate?: string;
-  source?: string;
 }
 
 export interface RescheduleResponse {
