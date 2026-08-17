@@ -19,11 +19,15 @@ const ReschedulePage = () => {
 
     setIsSubmitting(true);
     try {
-      await ApiService.rescheduleAssignment(id!, {
+      const res = await ApiService.rescheduleAssignment(id!, {
         reason,
         newScheduledDate: date,
         notes,
       });
+      if (!res?.success) {
+        alert(res?.message || 'Failed to reschedule');
+        return;
+      }
       alert('Assignment rescheduled successfully');
       navigate(`/assignments/${id}`);
     } catch (err: any) {

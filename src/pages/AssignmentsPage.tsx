@@ -131,7 +131,7 @@ const AssignmentsPage = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   
   // Success states
-  const [successMsg, setSuccessMsg] = useState<{ title: string; desc: string; type: 'reschedule' | 'complete' } | null>(null);
+  const [successMsg, setSuccessMsg] = useState<{ title: string; desc: string; type: 'reschedule' | 'complete' | 'error' } | null>(null);
 
   // Form states
   const [nonSearsForm, setNonSearsForm] = useState({
@@ -675,13 +675,22 @@ const AssignmentsPage = () => {
     if (!selectedId) return;
     try {
       const formattedDate = `${rescheduleForm.selectedDate}T${rescheduleForm.selectedTimeSlot.includes('8:00') ? '08:00' : rescheduleForm.selectedTimeSlot.includes('12:00') ? '12:00' : '16:00'}:00.000Z`;
-      await ApiService.rescheduleAssignment(selectedId, {
+      const res = await ApiService.rescheduleAssignment(selectedId, {
         reasonCode: rescheduleForm.reason,
         requestedArrivalDate: formattedDate,
         notes: rescheduleForm.notes,
         source: 'vendor_portal'
       });
       
+      if (!res?.success) {
+        setSuccessMsg({
+          title: 'Reschedule Failed',
+          desc: res?.message || 'Failed to reschedule. Please try again.',
+          type: 'error'
+        });
+        return;
+      }
+
       trackReschedule(selectedId);
       trackSORescheduled(selectedId, rescheduleForm.reason);
       setShowRescheduleWizard(false);
@@ -3293,8 +3302,8 @@ const AssignmentsPage = () => {
       {successMsg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md shadow-2xl p-6 text-center text-gray-700">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto mb-4">
-              <Check className="h-6 w-6" />
+            <div className={`w-12 h-12 rounded-full ${successMsg.type === 'error' ? 'bg-red-500/10 border border-red-500/30 text-red-500' : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'} flex items-center justify-center mx-auto mb-4`}>
+              {successMsg.type === 'error' ? <X className="h-6 w-6" /> : <Check className="h-6 w-6" />}
             </div>
             
             <h3 className="text-lg font-bold text-gray-900 tracking-tight">{successMsg.title}</h3>
