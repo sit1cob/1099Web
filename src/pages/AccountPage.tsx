@@ -192,7 +192,7 @@ const AccountPage = () => {
     weeklyEarnings: 1250
   };
 
-  const initials = (profile?.vendorName || user?.vendorName || 'Sasha').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+  const initials = (profile?.vendorName || user?.vendorName || 'Kris').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
 
   return (
     <div className="flex-grow flex flex-col bg-gray-50 text-gray-900 min-h-screen overflow-y-auto">
@@ -215,7 +215,7 @@ const AccountPage = () => {
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-gray-900">
-                  {profile?.vendorName || 'Sasha Tech Solutions'}
+                  {profile?.vendorName || 'Technician'}
                 </h1>
               </div>
               <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
@@ -262,7 +262,7 @@ const AccountPage = () => {
                       <input
                         type="text"
                         readOnly
-                        value={profile?.vendorName || 'Sasha Tech Solutions'}
+                        value={profile?.vendorName || 'Technician'}
                         className="mt-1.5 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none"
                       />
                       <p className="text-[10px] text-gray-400 mt-1">Managed via contractor registration portal.</p>
@@ -322,7 +322,7 @@ const AccountPage = () => {
                         {profile?.city || 'Hoffman Estates'}, {profile?.state || 'IL'} {profile?.zipCode || '60192'}
                       </p>
                       <p className="text-xs text-gray-400 mt-2">
-                        This location is utilized by Sasha AI Route Intelligence to order assignments and estimate driving times.
+                        This location is utilized by Kris AI Route Intelligence to order assignments and estimate driving times.
                       </p>
                     </div>
                   </div>
@@ -436,7 +436,7 @@ const AccountPage = () => {
               >
                 <X className="h-5 w-5" />
               </button>
-              <h3 className="text-xl font-extrabold text-white">Sasha 1099</h3>
+              <h3 className="text-xl font-extrabold text-white">KRIS 1099</h3>
               <p className="text-blue-200 text-xs mt-1">Sears Home Services Partner</p>
             </div>
 

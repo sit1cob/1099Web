@@ -552,7 +552,7 @@ const EarningsPage = () => {
                 <Award className="h-5.5 w-5.5 text-white" />
               </div>
               <div className="space-y-1">
-                <h4 className="font-bold text-gray-900 text-xs">Sasha Earnings Tip</h4>
+                <h4 className="font-bold text-gray-900 text-xs">Kris Earnings Tip</h4>
                 <p className="text-xs text-gray-600 leading-relaxed">
                   "Keep your customer feedback positive and check available jobs every morning to maximize your earnings."
                 </p>

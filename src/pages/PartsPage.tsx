@@ -518,7 +518,7 @@ const PartsPage = () => {
               <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex items-start gap-2.5 text-xs text-gray-600 leading-relaxed">
                 <ShieldCheck className="h-4.5 w-4.5 text-blue-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold text-gray-900">Need support?</span> Direct delivery modifications require dispatcher authentication. Connect to Sasha Chat AI to query transit overrides.
+                  <span className="font-semibold text-gray-900">Need support?</span> Direct delivery modifications require dispatcher authentication. Connect to Kris Chat AI to query transit overrides.
                 </div>
               </div>
             </div>

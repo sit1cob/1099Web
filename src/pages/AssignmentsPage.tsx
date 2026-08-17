@@ -1292,7 +1292,7 @@ const AssignmentsPage = () => {
                   <Sparkles className="h-4.5 w-4.5 animate-pulse" />
                 </div>
                 <div className="text-[11px] leading-relaxed text-blue-700">
-                  <span className="font-extrabold text-blue-800">Sasha Route Intelligence:</span> Suggested sequence optimizes drive time. Map Joe Matteo <span className="font-mono">SO-13694840</span> first, then Joe Matteo <span className="font-mono">SO-13694841</span> to save 12 mins.
+                  <span className="font-extrabold text-blue-800">Kris Route Intelligence:</span> Suggested sequence optimizes drive time. Map Joe Matteo <span className="font-mono">SO-13694840</span> first, then Joe Matteo <span className="font-mono">SO-13694841</span> to save 12 mins.
                 </div>
               </div>
 
@@ -1409,7 +1409,7 @@ const AssignmentsPage = () => {
               <div className="p-3.5 border-b border-blue-200 bg-blue-50 text-[11px] leading-relaxed text-gray-700 select-none shrink-0 flex items-start gap-2.5">
                 <Sparkles className="h-4.5 w-4.5 text-blue-500 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-extrabold text-blue-700">Sasha Schedule Insight:</span>{' '}
+                  <span className="font-extrabold text-blue-700">Kris Schedule Insight:</span>{' '}
                   "Tuesday has 2 jobs scheduled in Hoffman Estates. Claiming available jobs in Schaumburg or Palatine for Wednesday June 3 fits perfectly inside your route limits."
                 </div>
               </div>
@@ -1995,7 +1995,7 @@ const AssignmentsPage = () => {
                         </div>
                         <div>
                           <p className="text-xs font-bold text-gray-900">Need Diagnostic Assistance?</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5 leading-normal">Ask Sasha AI for repair tips, wiring diagrams, and parts advice for this model.</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5 leading-normal">Ask Kris AI for repair tips, wiring diagrams, and parts advice for this model.</p>
                         </div>
                       </div>
                       
@@ -2003,7 +2003,7 @@ const AssignmentsPage = () => {
                         onClick={() => window.location.href = `/chat?query=how%20to%20diagnose%20model%20${activeJobDetails.job?.applianceModel || 'VA6013'}`}
                         className="relative z-10 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20 hover:scale-[1.02] cursor-pointer whitespace-nowrap"
                       >
-                        Consult Sasha AI
+                        Consult Kris AI
                       </button>
                     </div>
                   )}

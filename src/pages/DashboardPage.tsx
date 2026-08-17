@@ -290,7 +290,7 @@ const DashboardPage = () => {
               </div>
               <div className="flex-grow min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-900 text-sm">Ask Sasha Anything</span>
+                  <span className="font-bold text-gray-900 text-sm">Ask Kris Anything</span>
                   <span
                     className="px-1.5 py-0.5 rounded text-[9px] font-extrabold tracking-widest text-white shrink-0"
                     style={{ backgroundColor: '#003D82' }}

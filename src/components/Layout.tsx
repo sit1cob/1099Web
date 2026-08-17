@@ -112,7 +112,7 @@ const Layout = () => {
               </div>
               <div>
                 <h1 className="font-extrabold text-lg tracking-wider" style={{ color: '#ffffff' }}>SEARS KAIROS</h1>
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#60a5fa' }}>SASHA 1099 PORTAL</p>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#60a5fa' }}>KRIS 1099 PORTAL</p>
               </div>
             </div>
             <button
@@ -195,7 +195,7 @@ const Layout = () => {
           >
             <div className="flex items-center gap-3">
               <MessageSquare className="h-5 w-5 shrink-0 text-cyan-400" />
-              <span>Chat AI (Sasha)</span>
+              <span>Chat AI (Kris)</span>
             </div>
             <span className="relative flex h-2 w-2 mr-1">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
