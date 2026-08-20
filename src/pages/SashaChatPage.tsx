@@ -9,13 +9,12 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
   const [reloadKey, setReloadKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const baseChatUrl = 'https://tm-qa.searskairos.ai/';
+  const baseChatUrl = 'https://1099sasha-qa.searskairos.ai/';
   const token = ApiService.getToken() || '';
+  const username = user?.username || 'test_vendor';
 
-  // Construct URL with auth query params
-  const iframeUrl = token
-    ? `${baseChatUrl}?token=${encodeURIComponent(token)}&accessToken=${encodeURIComponent(token)}`
-    : baseChatUrl;
+  // Construct URL with username, source, and token
+  const iframeUrl = `${baseChatUrl}?username=${encodeURIComponent(username)}&source=web_app&token=${encodeURIComponent(token)}`;
 
   // Set shared authorization cookies on mount and reload key change
   useEffect(() => {
