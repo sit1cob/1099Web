@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import ApiService from '../api/apiService';
 import { APP_CONFIG } from '../utils/config';
 import { trackFeedbackSubmitted, trackTechnicianProfile } from '../utils/clarityTracking';
+import { ga4FeedbackSubmitted, ga4FeedbackOpened, ga4AddressUpdated, ga4ModalOpened } from '../utils/ga4DataLayer';
 import { 
   User, Settings, Award, Star, MapPin, Mail, Phone, 
   ShieldCheck, Edit2, Check, Percent, Clock, ThumbsUp, 
@@ -105,6 +106,7 @@ const AccountPage = () => {
     try {
       const res = await ApiService.updateVendorAddress(addressForm);
       if (res.success) {
+        ga4AddressUpdated();
         setIsEditingAddress(false);
         await loadData();
       } else {
@@ -119,6 +121,7 @@ const AccountPage = () => {
   };
 
   const openFeedbackModal = async () => {
+    ga4FeedbackOpened();
     setShowFeedbackModal(true);
     setFeedbackAnswers({});
     if (!feedbackConfig) {
@@ -160,6 +163,7 @@ const AccountPage = () => {
       });
       if (res.success) {
         trackFeedbackSubmitted();
+        ga4FeedbackSubmitted(Object.keys(feedbackAnswers).length, answers);
         alert('Thank you for your feedback!');
         setShowFeedbackModal(false);
       } else {
@@ -304,7 +308,7 @@ const AccountPage = () => {
                       <span>Firm Address</span>
                     </h3>
                     <button
-                      onClick={() => setIsEditingAddress(true)}
+                      onClick={() => { setIsEditingAddress(true); ga4ModalOpened('edit_address'); }}
                       className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 border border-blue-500 rounded-md text-xs font-semibold text-white transition-colors cursor-pointer"
                     >
                       <Edit2 className="h-3 w-3" />

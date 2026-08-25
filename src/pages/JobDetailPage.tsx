@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { trackSOClaimed } from '../utils/clarityTracking';
+import { ga4SOClaimed } from '../utils/ga4DataLayer';
 import { JobDetailsDto } from '../types/jobDetails.types';
 import { formatUSDate } from '../utils/date';
 import { ArrowLeft, MapPin, Calendar, Wrench, Phone, User, Loader2, CheckCircle, FileText } from 'lucide-react';
@@ -31,6 +32,7 @@ const JobDetailPage = () => {
       const res = await ApiService.claimJob(id, { notes: '', action: 'accept' });
       if (res.success) {
         trackSOClaimed(id);
+        ga4SOClaimed(id, job?.soNumber);
         alert('Job claimed successfully!');
         navigate('/assignments');
       } else {

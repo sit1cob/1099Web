@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { formatUSDate } from '../utils/date';
+import { ga4TabChanged, ga4PartTracked } from '../utils/ga4DataLayer';
 import { 
   Loader2, Package, Truck, History, ArrowRight, Box, 
   Search, X, CheckCircle2, MapPin, Calendar, DollarSign,
@@ -74,6 +75,7 @@ const PartsPage = () => {
   const handleTabSwitch = (tab: Tab) => {
     setSearchQuery('');
     setSelectedPart(null);
+    ga4TabChanged(tab, 'parts');
     navigate(`/parts?tab=${tab}`);
   };
 

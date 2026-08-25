@@ -9,6 +9,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
   Tooltip, Legend, CartesianGrid 
 } from 'recharts';
+import { ga4EarningsViewed, ga4TabChanged } from '../utils/ga4DataLayer';
 
 type Tab = 'today' | 'week' | 'month' | 'ytd';
 
@@ -77,6 +78,8 @@ const EarningsPage = () => {
 
   // Tab switch navigator
   const handleTabSwitch = (tab: Tab) => {
+    ga4EarningsViewed(tab);
+    ga4TabChanged(tab, 'earnings');
     navigate(`/earnings?tab=${tab}`);
   };
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { trackMarkArrived, trackApplianceUpdated, trackReschedule, trackPartsOrdered, trackPartAdded, trackJobCompleted, trackJobClaimed, trackPartDeleted, trackStatusChange, trackSOClaimed, trackSOCompleted, trackSOCustomerNotHome, trackSOCancelled, trackSOEstimateDeclined, trackSORescheduled, trackSOViewed, trackSOInProgress } from '../utils/clarityTracking';
+import { ga4SOViewed, ga4SOClaimed, ga4SOArrived, ga4SOCompleted, ga4SORescheduled, ga4SOCustomerNotHome, ga4SOCancelled, ga4SOEstimateDeclined, ga4StatusChange, ga4PartAdded, ga4PartDeleted, ga4PartsOrdered, ga4ApplianceUpdated, ga4SearchUsed, ga4TabChanged, ga4ModalOpened, ga4ButtonClick, ga4NonSearsJobCreated, ga4NonSearsJobUpdated } from '../utils/ga4DataLayer';
 import { mockDb } from '../api/mockData';
 import { formatUSDate } from '../utils/date';
 import {
@@ -592,6 +593,7 @@ const AssignmentsPage = () => {
     try {
       await ApiService.updateAssignmentStatus(selectedId, 'arrived');
       trackMarkArrived(selectedId);
+      ga4SOArrived(selectedId);
       setShowArrivedConfirm(false);
       await loadData();
 
@@ -660,6 +662,7 @@ const AssignmentsPage = () => {
         return a;
       }));
       trackApplianceUpdated(selectedId);
+      ga4ApplianceUpdated(selectedId, applianceForm.brand, applianceForm.model);
       setShowApplianceDrawer(false);
     } catch (e) {
       console.error(e);
@@ -693,6 +696,7 @@ const AssignmentsPage = () => {
 
       trackReschedule(selectedId);
       trackSORescheduled(selectedId, rescheduleForm.reason);
+      ga4SORescheduled(selectedId, rescheduleForm.reason, rescheduleForm.selectedDate);
       setShowRescheduleWizard(false);
       setRescheduleForm({
         step: 1,
@@ -940,11 +944,13 @@ const AssignmentsPage = () => {
       }
 
       trackPartsOrdered(selectedId);
+      ga4PartsOrdered(selectedId, cart.length);
       setPartsRefreshKey(k => k + 1);
 
       if (partsError) {
         await ApiService.updateAssignmentStatus(selectedId, 'waiting_on_parts');
         trackStatusChange(selectedId, 'waiting_on_parts');
+      ga4StatusChange(selectedId, 'waiting_on_parts');
         setShowAddressConfirm(false);
         setShowPartsModal(false);
         setCart([]);
@@ -1123,12 +1129,12 @@ const AssignmentsPage = () => {
 
       await ApiService.updateAssignmentStatusV3(selectedId, payload);
       // Track specific funnel terminal state
-      if (isCompleteCompleted) trackSOCompleted(selectedId, completeForm.completionType);
-      else if (isCompleteRescheduled) trackSORescheduled(selectedId, completeForm.rescheduleReason);
-      else if (isCompleteCNH) trackSOCustomerNotHome(selectedId);
-      else if (isCompleteCancelAtDoor) trackSOCancelled(selectedId);
-      else if (isCompleteEstimateDeclined) trackSOEstimateDeclined(selectedId);
-      else trackSOCompleted(selectedId, completeForm.completionType);
+      if (isCompleteCompleted) { trackSOCompleted(selectedId, completeForm.completionType); ga4SOCompleted(selectedId, completeForm.completionType, completeForm.repairCode); }
+      else if (isCompleteRescheduled) { trackSORescheduled(selectedId, completeForm.rescheduleReason); ga4SORescheduled(selectedId, completeForm.rescheduleReason); }
+      else if (isCompleteCNH) { trackSOCustomerNotHome(selectedId); ga4SOCustomerNotHome(selectedId, completeForm.cnhReason); }
+      else if (isCompleteCancelAtDoor) { trackSOCancelled(selectedId); ga4SOCancelled(selectedId, completeForm.cancelReason); }
+      else if (isCompleteEstimateDeclined) { trackSOEstimateDeclined(selectedId); ga4SOEstimateDeclined(selectedId, completeForm.estimateDeclineReason); }
+      else { trackSOCompleted(selectedId, completeForm.completionType); ga4SOCompleted(selectedId, completeForm.completionType, completeForm.repairCode); }
 
       setShowCompleteModal(false);
       // Reset form
@@ -1212,7 +1218,7 @@ const AssignmentsPage = () => {
               
               {/* Log Non-Sears Job Trigger */}
               <button
-                onClick={() => setShowLogNonSears(true)}
+                onClick={() => { setShowLogNonSears(true); ga4ModalOpened('log_non_sears_job'); }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:border-blue-300 rounded-lg text-xs font-bold text-blue-600 transition-all cursor-pointer shadow-sm"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -1608,6 +1614,7 @@ const AssignmentsPage = () => {
                           if (res.success) {
                             trackJobClaimed(activeJobDetails.id);
                             trackSOClaimed(activeJobDetails.id);
+                            ga4SOClaimed(activeJobDetails.id, activeJobDetails.soNumber);
                             alert('Job claimed successfully!');
                             loadData();
                           } else {
@@ -1633,7 +1640,7 @@ const AssignmentsPage = () => {
                   {activeJobDetails._type === 'sears' && activeJobDetails.status === 'assigned' && (
                     <>
                       <button
-                        onClick={() => setShowArrivedConfirm(true)}
+                        onClick={() => { setShowArrivedConfirm(true); ga4ModalOpened('mark_arrived_confirm'); }}
                         className="flex items-center gap-2 px-4 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                       >
                         <Navigation className="h-4 w-4" />
@@ -1644,7 +1651,7 @@ const AssignmentsPage = () => {
 
                   {activeJobDetails._type === 'sears' && !['in_progress', 'completed'].includes(activeJobDetails.status) && (
                     <button
-                      onClick={() => setShowApplianceDrawer(true)}
+                      onClick={() => { setShowApplianceDrawer(true); ga4ModalOpened('scan_edit_appliance'); }}
                       className="flex items-center gap-2 px-4 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                     >
                       <PlayCircle className="h-4 w-4" />
@@ -1655,7 +1662,7 @@ const AssignmentsPage = () => {
                   {activeJobDetails._type === 'sears' && activeJobDetails.status === 'arrived' && (
                     <>
                       <button
-                        onClick={() => setShowPartsModal(true)}
+                        onClick={() => { setShowPartsModal(true); ga4ModalOpened('add_parts'); }}
                         className="flex items-center gap-2 px-3.5 py-2 border border-gray-200 hover:border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                       >
                         <Plus className="h-4 w-4" />
@@ -1663,7 +1670,7 @@ const AssignmentsPage = () => {
                       </button>
 
                       <button
-                        onClick={() => setShowRescheduleWizard(true)}
+                        onClick={() => { setShowRescheduleWizard(true); ga4ModalOpened('reschedule_wizard'); }}
                         className="flex items-center gap-2 px-3.5 py-2 border border-gray-200 hover:border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                       >
                         <Calendar className="h-4 w-4" />
@@ -1671,7 +1678,7 @@ const AssignmentsPage = () => {
                       </button>
 
                       <button
-                        onClick={() => setShowCompleteModal(true)}
+                        onClick={() => { setShowCompleteModal(true); ga4ModalOpened('complete_job'); }}
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-650 to-teal-650 hover:from-emerald-600 hover:to-teal-600 border border-emerald-500/25 hover:border-emerald-400/30 text-gray-900 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/10 hover:scale-[1.02] duration-200"
                       >
                         <CheckCircle className="h-4 w-4" />
@@ -1686,7 +1693,7 @@ const AssignmentsPage = () => {
                         Awaiting Back-ordered Parts
                       </span>
                       <button
-                        onClick={() => setShowRescheduleWizard(true)}
+                        onClick={() => { setShowRescheduleWizard(true); ga4ModalOpened('reschedule_wizard'); }}
                         className="flex items-center gap-2 px-3.5 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                       >
                         <Calendar className="h-4 w-4" />
@@ -1972,11 +1979,13 @@ const AssignmentsPage = () => {
                           setSelectedTrackPart(null);
                           setTrackDetailBackToSummary(false);
                           setShowTrackPartsModal(true);
+                          ga4ModalOpened('track_parts');
                         }}
                         onTrackDetail={(part) => {
                           setSelectedTrackPart(part);
                           setTrackDetailBackToSummary(false);
                           setShowTrackDetailModal(true);
+                          ga4ModalOpened('track_part_detail');
                         }}
                       />
                     </div>

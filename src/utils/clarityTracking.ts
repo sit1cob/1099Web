@@ -4,8 +4,44 @@
 declare global {
   interface Window {
     clarity: (...args: any[]) => void;
+    dataLayer: Record<string, any>[];
   }
 }
+
+// Push clarity_initialized event to dataLayer once Clarity is ready
+// Uses polling since clarity('ready') is not a supported API method
+export const pushClarityInitializedToDataLayer = () => {
+  let attempts = 0;
+  const maxAttempts = 20; // poll for up to 10 seconds (20 × 500ms)
+
+  const poll = () => {
+    attempts++;
+    // Clarity sets a _clsk cookie once initialized; also check for session via cookie
+    const clskCookie = document.cookie.split(';').find(c => c.trim().startsWith('_clsk='));
+    const clckCookie = document.cookie.split(';').find(c => c.trim().startsWith('_clck='));
+
+    if (clskCookie && clckCookie) {
+      const sessionId = clskCookie.trim().replace('_clsk=', '').split('|')[0] || '';
+      const userId = clckCookie.trim().replace('_clck=', '').split('|')[0] || '';
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'clarity_initialized',
+        clarity_user_id: userId,
+        clarity_session_id: sessionId,
+      });
+      console.log(`[Clarity] Pushed clarity_initialized to dataLayer: userId=${userId}, sessionId=${sessionId}`);
+      return;
+    }
+
+    if (attempts < maxAttempts) {
+      setTimeout(poll, 500);
+    } else {
+      console.warn('[Clarity] clarity_initialized: timed out waiting for Clarity cookies');
+    }
+  };
+
+  poll();
+};
 
 // Track a custom event (shows up in Clarity dashboard under "Custom Events")
 export const trackEvent = (eventName: string) => {

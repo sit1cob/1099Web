@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ApiService from '../api/apiService';
+import { ga4PageView } from '../utils/ga4DataLayer';
 import SashaChatPage from '../pages/SashaChatPage';
 import {
   LayoutDashboard, ClipboardList, Wrench, DollarSign, LogOut,
@@ -44,6 +45,21 @@ const Layout = () => {
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname, location.search]);
+
+  // GA4 page view — only on pathname changes (not query param changes)
+  useEffect(() => {
+    const pageNames: Record<string, string> = {
+      '/': 'Dashboard',
+      '/assignments': 'My Jobs',
+      '/available-jobs': 'Available Jobs',
+      '/parts': 'Parts & Inventory',
+      '/earnings': 'Earnings',
+      '/account': 'Account',
+      '/chat': 'Chat AI',
+    };
+    const pageName = pageNames[location.pathname] || location.pathname;
+    ga4PageView(pageName, location.pathname);
+  }, [location.pathname]);
 
   // Keep track of which sidebar sections are expanded
   const [expanded, setExpanded] = useState<Record<string, boolean>>({

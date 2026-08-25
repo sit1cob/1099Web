@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../api/apiService';
 import { Bot, RefreshCw, ExternalLink, Loader2 } from 'lucide-react';
+import { ga4ChatAIOpened, ga4ChatAIRefreshed, ga4ChatAIOpenedExternal } from '../utils/ga4DataLayer';
 
 const SashaChatPage = ({ active = true }: { active?: boolean }) => {
   const { user } = useAuth();
@@ -274,11 +275,13 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
   };
 
   const handleRefresh = () => {
+    ga4ChatAIRefreshed();
     setIsLoading(true);
     setReloadKey(prev => prev + 1);
   };
 
   const handleOpenExternal = () => {
+    ga4ChatAIOpenedExternal();
     window.open(iframeUrl, '_blank', 'noopener,noreferrer');
   };
 
