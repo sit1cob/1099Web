@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ApiService from '../api/apiService';
-import { ga4PageView } from '../utils/ga4DataLayer';
+import { ga4PageView, ga4UserProfileLoaded } from '../utils/ga4DataLayer';
 import SashaChatPage from '../pages/SashaChatPage';
 import {
   LayoutDashboard, ClipboardList, Wrench, DollarSign, LogOut,
@@ -19,23 +19,31 @@ const Layout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const profileLoadedFired = useRef(false);
 
-  // Fetch vendor profile to get the correct business name
+  // Fetch vendor profile to get the correct business name + persist profile fields
   useEffect(() => {
     ApiService.getVendorProfile().then(res => {
       if (res.success && res.data) {
-        const name = res.data.vendorName || res.data.name || null;
+        const profile = res.data;
+        const name = profile.vendorName || profile.name || null;
         setDisplayName(name);
-        // Also update stored user so name stays consistent
-        if (name) {
-          try {
-            const stored = JSON.parse(localStorage.getItem('user') || '{}');
-            if (stored && stored.vendorName !== name) {
-              stored.vendorName = name;
-              stored.name = name;
-              localStorage.setItem('user', JSON.stringify(stored));
-            }
-          } catch (_) {}
+        // Persist profile fields to localStorage so logout/session_restored can use them
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          if (name) { stored.vendorName = name; stored.name = name; }
+          if (profile.zipCode) stored.zipCode = profile.zipCode;
+          if (profile.city) stored.city = profile.city;
+          if (profile.state) stored.state = profile.state;
+          if (profile.phone || profile.mobile) stored.phone = profile.phone || profile.mobile;
+          if (profile.email) stored.email = profile.email;
+          if (profile.addressLine1) stored.addressLine1 = profile.addressLine1;
+          localStorage.setItem('user', JSON.stringify(stored));
+        } catch (_) {}
+        // Fire GA4 event only once
+        if (!profileLoadedFired.current) {
+          ga4UserProfileLoaded(profile);
+          profileLoadedFired.current = true;
         }
       }
     }).catch(() => {});

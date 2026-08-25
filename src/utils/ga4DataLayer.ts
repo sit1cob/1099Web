@@ -29,17 +29,30 @@ const pushEvent = (eventName: string, params?: Record<string, any>) => {
 // ══════════════════════════════════════════════════════════════
 
 export const ga4Login = (username: string, userData?: any) => {
-  pushEvent('login', {
+  const params: Record<string, any> = {
     method: 'vendor_id',
     user_id: username,
-    vendor_id: userData?.vendorId ? String(userData.vendorId) : undefined,
     vendor_name: userData?.vendorName || userData?.email || username,
     user_role: userData?.role || 'technician',
-    user_zip_code: userData?.zipCode || userData?.zipCodes?.[0] || undefined,
-    user_city: userData?.city || undefined,
-    user_state: userData?.state || undefined,
-    user_phone: userData?.phone || undefined,
-  });
+  };
+  if (userData?.vendorId) params.vendor_id = String(userData.vendorId);
+  if (userData?.zipCode || userData?.zipCodes?.[0]) params.user_zip_code = userData.zipCode || userData.zipCodes[0];
+  if (userData?.city) params.user_city = userData.city;
+  if (userData?.state) params.user_state = userData.state;
+  if (userData?.phone) params.user_phone = userData.phone;
+  pushEvent('login', params);
+};
+
+export const ga4UserProfileLoaded = (profileData: any) => {
+  const params: Record<string, any> = {};
+  if (profileData?.vendorName || profileData?.name) params.vendor_name = profileData.vendorName || profileData.name;
+  if (profileData?.zipCode || profileData?.zipCodes?.[0]) params.user_zip_code = profileData.zipCode || profileData.zipCodes[0];
+  if (profileData?.city) params.user_city = profileData.city;
+  if (profileData?.state) params.user_state = profileData.state;
+  if (profileData?.phone || profileData?.mobile) params.user_phone = profileData.phone || profileData.mobile;
+  if (profileData?.email) params.user_email = profileData.email;
+  if (profileData?.addressLine1) params.user_address = profileData.addressLine1;
+  if (Object.keys(params).length > 0) pushEvent('user_profile_loaded', params);
 };
 
 export const ga4LoginFailed = (username: string, errorMessage: string) => {
@@ -51,31 +64,32 @@ export const ga4LoginFailed = (username: string, errorMessage: string) => {
 
 export const ga4Logout = () => {
   // Include user details at time of logout (read from storage before it's cleared)
-  let logoutParams: Record<string, any> = {};
+  const params: Record<string, any> = {};
   try {
     const stored = JSON.parse(localStorage.getItem('user') || '{}');
-    logoutParams = {
-      user_id: stored?.username || undefined,
-      vendor_id: stored?.vendorId ? String(stored.vendorId) : undefined,
-      vendor_name: stored?.vendorName || stored?.email || stored?.username || undefined,
-      user_role: stored?.role || 'technician',
-      user_zip_code: stored?.zipCode || stored?.zipCodes?.[0] || undefined,
-      user_city: stored?.city || undefined,
-      user_state: stored?.state || undefined,
-      user_phone: stored?.phone || undefined,
-    };
+    if (stored?.username) params.user_id = stored.username;
+    if (stored?.vendorId) params.vendor_id = String(stored.vendorId);
+    params.vendor_name = stored?.vendorName || stored?.email || stored?.username || '';
+    params.user_role = stored?.role || 'technician';
+    if (stored?.zipCode || stored?.zipCodes?.[0]) params.user_zip_code = stored.zipCode || stored.zipCodes[0];
+    if (stored?.city) params.user_city = stored.city;
+    if (stored?.state) params.user_state = stored.state;
+    if (stored?.phone || stored?.mobile) params.user_phone = stored.phone || stored.mobile;
   } catch (_) {}
-  pushEvent('logout', logoutParams);
+  pushEvent('logout', params);
 };
 
 export const ga4SessionRestored = (username: string) => {
-  let params: Record<string, any> = { user_id: username };
+  const params: Record<string, any> = { user_id: username };
   try {
     const stored = JSON.parse(localStorage.getItem('user') || '{}');
-    params.vendor_id = stored?.vendorId ? String(stored.vendorId) : undefined;
+    if (stored?.vendorId) params.vendor_id = String(stored.vendorId);
     params.vendor_name = stored?.vendorName || stored?.email || username;
     params.user_role = stored?.role || 'technician';
-    params.user_zip_code = stored?.zipCode || stored?.zipCodes?.[0] || undefined;
+    if (stored?.zipCode || stored?.zipCodes?.[0]) params.user_zip_code = stored.zipCode || stored.zipCodes[0];
+    if (stored?.city) params.user_city = stored.city;
+    if (stored?.state) params.user_state = stored.state;
+    if (stored?.phone || stored?.mobile) params.user_phone = stored.phone || stored.mobile;
   } catch (_) {}
   pushEvent('session_restored', params);
 };
