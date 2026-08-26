@@ -102,7 +102,7 @@ These events track the full lifecycle of a service order assignment.
 |---|---|---|---|
 | `part_added` | Part added to cart/order | `assignment_id`, `part_number`, `part_description` | `AssignmentsPage.tsx` |
 | `part_deleted` | Part removed from order | `assignment_id`, `part_id` | `AssignmentsPage.tsx` |
-| `parts_ordered` | Parts order submitted | `assignment_id`, `part_count` | `AssignmentsPage.tsx` |
+| `parts_ordered` | Parts order submitted | `assignment_id`, `part_count`, `part_numbers`, `part_names` | `AssignmentsPage.tsx` |
 | `part_tracked` | User opens part tracking | `assignment_id`, `tracking_number` | `PartsPage.tsx` |
 
 ### Parameter Details
@@ -113,6 +113,8 @@ These events track the full lifecycle of a service order assignment.
 | `part_description` | string | `"Timer Switch"` | Part description |
 | `part_id` | string | `"draft-123-0"` | Internal part ID |
 | `part_count` | number | `3` | Number of parts ordered |
+| `part_numbers` | string | `"WP3949247, WP12345"` | Comma-separated part numbers |
+| `part_names` | string | `"Timer Switch, Pump"` | Comma-separated part names (max 500 chars) |
 | `tracking_number` | string | `"1Z999AA10123456784"` | Shipping tracking number |
 
 ---
@@ -221,7 +223,7 @@ These events track the full lifecycle of a service order assignment.
 
 | Event Name | Trigger | Parameters | Source File |
 |---|---|---|---|
-| `non_sears_job_created` | Technician logs a new non-Sears job | — | `AssignmentsPage.tsx` |
+| `non_sears_job_created` | Technician logs a new non-Sears job | `job_source`, `appliance_type`, `appliance_brand`, `job_issue`, `job_zip_code`, `scheduled_date`, `client_type` | `AssignmentsPage.tsx` |
 | `non_sears_job_updated` | Technician updates a non-Sears job | `job_id` | `AssignmentsPage.tsx` |
 
 ---

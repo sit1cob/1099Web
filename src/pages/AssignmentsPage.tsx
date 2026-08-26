@@ -556,8 +556,18 @@ const AssignmentsPage = () => {
       if (nonSearsForm.notes) payload.notes = nonSearsForm.notes;
       if (editingNonSearsId) {
         await ApiService.updateNonShsJob(editingNonSearsId, payload);
+        ga4NonSearsJobUpdated(editingNonSearsId);
       } else {
         await ApiService.logNonShsJob(payload);
+        ga4NonSearsJobCreated({
+          source: nonSearsForm.source === 'Someone Else' ? (nonSearsForm.sourceOther || 'Someone Else') : nonSearsForm.source,
+          appliance: nonSearsForm.appliance,
+          brand: nonSearsForm.brand,
+          issue: nonSearsForm.issue,
+          zipCode: nonSearsForm.zipCode,
+          scheduledDate: nonSearsForm.scheduledDate,
+          clientType: nonSearsForm.clientType,
+        });
       }
       setShowLogNonSears(false);
       setEditingNonSearsId(null);
@@ -944,7 +954,7 @@ const AssignmentsPage = () => {
       }
 
       trackPartsOrdered(selectedId);
-      ga4PartsOrdered(selectedId, cart.length);
+      ga4PartsOrdered(selectedId, cart.length, cart.map(item => ({ partNo: item.partNo, name: item.name })));
       setPartsRefreshKey(k => k + 1);
 
       if (partsError) {

@@ -221,11 +221,16 @@ export const ga4PartDeleted = (assignmentId: string, partId?: string) => {
   });
 };
 
-export const ga4PartsOrdered = (assignmentId: string, partCount?: number) => {
-  pushEvent('parts_ordered', {
+export const ga4PartsOrdered = (assignmentId: string, partCount?: number, parts?: { partNo: string; name?: string }[]) => {
+  const params: Record<string, any> = {
     assignment_id: assignmentId,
     part_count: partCount,
-  });
+  };
+  if (parts?.length) {
+    params.part_numbers = parts.map(p => p.partNo).join(', ');
+    params.part_names = parts.map(p => p.name || p.partNo).join(', ').slice(0, 500);
+  }
+  pushEvent('parts_ordered', params);
 };
 
 export const ga4PartTracked = (assignmentId: string, trackingNumber: string) => {
@@ -343,8 +348,16 @@ export const ga4ModalClosed = (modalName: string) => {
 // NON-SEARS JOB EVENTS
 // ══════════════════════════════════════════════════════════════
 
-export const ga4NonSearsJobCreated = () => {
-  pushEvent('non_sears_job_created');
+export const ga4NonSearsJobCreated = (jobData?: { source?: string; appliance?: string; brand?: string; issue?: string; zipCode?: string; scheduledDate?: string; clientType?: string }) => {
+  const params: Record<string, any> = {};
+  if (jobData?.source) params.job_source = jobData.source;
+  if (jobData?.appliance) params.appliance_type = jobData.appliance;
+  if (jobData?.brand) params.appliance_brand = jobData.brand;
+  if (jobData?.issue) params.job_issue = jobData.issue;
+  if (jobData?.zipCode) params.job_zip_code = jobData.zipCode;
+  if (jobData?.scheduledDate) params.scheduled_date = jobData.scheduledDate;
+  if (jobData?.clientType) params.client_type = jobData.clientType;
+  pushEvent('non_sears_job_created', params);
 };
 
 export const ga4NonSearsJobUpdated = (jobId: string) => {
