@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
 import { APP_CONFIG } from '../utils/config';
+import { ga4PageView } from '../utils/ga4DataLayer';
 
 const LoginPage = () => {
   const { login, isAuthenticated } = useAuth();
@@ -13,6 +14,10 @@ const LoginPage = () => {
   const [error, setError] = useState('');
 
   const heroImgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    ga4PageView('Login', '/login');
+  }, []);
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 

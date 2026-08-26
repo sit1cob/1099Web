@@ -44,15 +44,22 @@ All events are pushed to `window.dataLayer` and captured by GTM for forwarding t
 
 ### Page Name Mapping
 
-| Path | Page Title |
-|---|---|
-| `/` | Dashboard |
-| `/assignments` | My Jobs |
-| `/available-jobs` | Available Jobs |
-| `/parts` | Parts & Inventory |
-| `/earnings` | Earnings |
-| `/account` | Account |
-| `/chat` | Chat AI |
+| Path | Page Title | Source |
+|---|---|---|
+| `/login` | Login | `LoginPage.tsx` |
+| `/` | Dashboard | `Layout.tsx` |
+| `/assignments` | My Jobs | `Layout.tsx` |
+| `/assignments/:id` | Assignment Detail | `Layout.tsx` |
+| `/assignments/:id/complete` | Job Complete | `Layout.tsx` |
+| `/assignments/:id/complete-success` | Job Complete Success | `Layout.tsx` |
+| `/assignments/:id/reschedule` | Reschedule | `Layout.tsx` |
+| `/assignments/:id/customer-not-home` | Customer Not Home | `Layout.tsx` |
+| `/available-jobs` | Available Jobs | `Layout.tsx` |
+| `/jobs/:id` | Job Detail | `Layout.tsx` |
+| `/parts` | Parts & Inventory | `Layout.tsx` |
+| `/earnings` | Earnings | `Layout.tsx` |
+| `/account` | Account | `Layout.tsx` |
+| `/chat` | Chat AI | `Layout.tsx` |
 
 ---
 

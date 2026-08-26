@@ -65,7 +65,18 @@ const Layout = () => {
       '/account': 'Account',
       '/chat': 'Chat AI',
     };
-    const pageName = pageNames[location.pathname] || location.pathname;
+    // Check exact match first, then match dynamic routes
+    let pageName = pageNames[location.pathname];
+    if (!pageName) {
+      const path = location.pathname;
+      if (path.match(/^\/assignments\/[^/]+\/complete-success$/)) pageName = 'Job Complete Success';
+      else if (path.match(/^\/assignments\/[^/]+\/complete$/)) pageName = 'Job Complete';
+      else if (path.match(/^\/assignments\/[^/]+\/reschedule$/)) pageName = 'Reschedule';
+      else if (path.match(/^\/assignments\/[^/]+\/customer-not-home$/)) pageName = 'Customer Not Home';
+      else if (path.match(/^\/assignments\/[^/]+$/)) pageName = 'Assignment Detail';
+      else if (path.match(/^\/jobs\/[^/]+$/)) pageName = 'Job Detail';
+      else pageName = path;
+    }
     ga4PageView(pageName, location.pathname);
   }, [location.pathname]);
 
