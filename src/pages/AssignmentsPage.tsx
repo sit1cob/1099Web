@@ -832,7 +832,7 @@ const AssignmentsPage = () => {
     } else if (allChecked) {
       const unavailableCount = cart.filter(item => !partsAvailability[item.partNo]).length;
       if (unavailableCount > 0) {
-        setPartsError(`${unavailableCount} part${unavailableCount > 1 ? 's are' : ' is'} unavailable and will not be included in your order.`);
+        setPartsError(`Order unavailable — one or more parts in your cart aren't ready to order. All parts must be available before you can place an order. Please remove the unavailable part(s) or check back later, then try again.`);
       }
       setAvailabilityChecked(true);
     }
@@ -861,7 +861,7 @@ const AssignmentsPage = () => {
       setPartsAvailability(availMap);
       const unavailableCount = cart.filter(item => !availMap[item.partNo]).length;
       if (unavailableCount > 0) {
-        setPartsError(`${unavailableCount} part${unavailableCount > 1 ? 's are' : ' is'} unavailable and will not be included in your order.`);
+        setPartsError(`Order unavailable — one or more parts in your cart aren't ready to order. All parts must be available before you can place an order. Please remove the unavailable part(s) or check back later, then try again.`);
         setAvailabilityChecked(true);
       } else {
         setAvailabilityChecked(true);
@@ -1672,7 +1672,7 @@ const AssignmentsPage = () => {
                   {activeJobDetails._type === 'sears' && activeJobDetails.status === 'arrived' && (
                     <>
                       <button
-                        onClick={() => { setShowPartsModal(true); ga4ModalOpened('add_parts'); }}
+                        onClick={() => { setShowPartsModal(true); setPartsSearch(prev => ({ ...prev, query: activeJobDetails?.job?.applianceModel || '' })); ga4ModalOpened('add_parts'); }}
                         className="flex items-center gap-2 px-3.5 py-2 border border-gray-200 hover:border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                       >
                         <Plus className="h-4 w-4" />
@@ -1970,7 +1970,7 @@ const AssignmentsPage = () => {
                         </div>
                         {activeJobDetails.status === 'arrived' && (
                           <button
-                            onClick={() => setShowPartsModal(true)}
+                            onClick={() => { setShowPartsModal(true); setPartsSearch(prev => ({ ...prev, query: activeJobDetails?.job?.applianceModel || '' })); }}
                             className="text-[11px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1 transition-colors"
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -2695,6 +2695,13 @@ const AssignmentsPage = () => {
               
               <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-4 shrink-0">
                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <button
+                    onClick={() => { setShowPartsModal(false); setCart([]); setPartsError(null); }}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
+                    title="Go Back"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
                   <Wrench className="h-5 w-5 text-blue-500" />
                   <span>Sears 1099 Parts Catalog Search</span>
                 </h3>
@@ -2799,17 +2806,26 @@ const AssignmentsPage = () => {
                         key={`${part.itemId || part.partNo}-${idx}`}
                         className="p-3 bg-white border border-gray-200 rounded-xl flex items-center justify-between gap-4"
                       >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-extrabold text-gray-900">{part.name}</span>
-                            <span className="text-[10px] text-gray-400 font-mono">Part #{part.partNo}</span>
+                        <div className="flex items-center gap-3">
+                          {part.imageUrl ? (
+                            <img src={part.imageUrl} alt={part.name} className="w-10 h-10 object-contain rounded border border-gray-100 shrink-0 bg-gray-50" />
+                          ) : (
+                            <div className="w-10 h-10 rounded border border-gray-100 bg-gray-50 flex items-center justify-center shrink-0">
+                              <Package className="h-4 w-4 text-gray-300" />
+                            </div>
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-extrabold text-gray-900">{part.name}</span>
+                              <span className="text-[10px] text-gray-400 font-mono">Part #{part.partNo}</span>
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-0.5">{part.description}</p>
                           </div>
-                          <p className="text-[10px] text-gray-500 mt-0.5">{part.description}</p>
                         </div>
 
                         <button
                           onClick={() => handleAddToCart(part)}
-                          className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/30 hover:border-blue-500 rounded-lg text-[10px] font-bold text-blue-400 transition-colors cursor-pointer"
+                          className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/30 hover:border-blue-500 rounded-lg text-[10px] font-bold text-blue-400 transition-colors cursor-pointer shrink-0"
                         >
                           Add to Cart
                         </button>
@@ -2854,9 +2870,18 @@ const AssignmentsPage = () => {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
-                        <div>
-                          <p className="text-[11px] font-bold text-gray-900 truncate pr-5">{item.name}</p>
-                          <p className="text-[9px] text-gray-400 font-mono mt-0.2">Part #{item.partNo}</p>
+                        <div className="flex items-center gap-2.5">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.name} className="w-9 h-9 object-contain rounded border border-gray-100 shrink-0 bg-white" />
+                          ) : (
+                            <div className="w-9 h-9 rounded border border-gray-100 bg-white flex items-center justify-center shrink-0">
+                              <Package className="h-3.5 w-3.5 text-gray-300" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-[11px] font-bold text-gray-900 truncate pr-5">{item.name}</p>
+                            <p className="text-[9px] text-gray-400 font-mono mt-0.5">Part #{item.partNo}</p>
+                          </div>
                         </div>
                         {isChecked && (
                           <div>
@@ -2914,24 +2939,13 @@ const AssignmentsPage = () => {
                   <span className="text-gray-900">{cart.reduce((sum, item) => sum + item.quantity, 0)} item{cart.reduce((sum, item) => sum + item.quantity, 0) !== 1 ? 's' : ''}</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <button
                     onClick={handleCheckAvailability}
                     disabled={cart.length === 0}
-                    className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 text-[10px] font-extrabold text-gray-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 text-[10px] font-extrabold text-gray-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50 w-full"
                   >
                     {checkingAvailability ? 'Checking...' : 'Check Parts Availability'}
-                  </button>
-                  <button
-                    onClick={handleAddPartsToJob}
-                    disabled={
-                      cart.length === 0 ||
-                      !availabilityChecked ||
-                      (availabilityChecked && cart.every(item => partsAvailability[item.partNo] === false))
-                    }
-                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {partsError ? 'Order & Reschedule' : 'Submit Parts'}
                   </button>
                 </div>
 
