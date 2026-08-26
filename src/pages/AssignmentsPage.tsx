@@ -986,7 +986,7 @@ const AssignmentsPage = () => {
   };
 
   const handleAddPartsToJob = async () => {
-    handleSubmitPartsClick();
+    handleConfirmAndProceed();
   };
 
   // Complete job (Signature pad drawing functions)
@@ -2947,6 +2947,26 @@ const AssignmentsPage = () => {
                   >
                     {checkingAvailability ? 'Checking...' : 'Check Parts Availability'}
                   </button>
+                  {availabilityChecked && !partsError && cart.length > 0 && (
+                    <button
+                      onClick={handleAddPartsToJob}
+                      disabled={confirmProcessing}
+                      className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {confirmProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {confirmProcessing ? 'Adding Parts...' : 'Add Parts to Order'}
+                    </button>
+                  )}
+                  {partsError && cart.length > 0 && availabilityChecked && cart.some(item => partsAvailability[item.partNo] === true) && (
+                    <button
+                      onClick={handleAddPartsToJob}
+                      disabled={confirmProcessing}
+                      className="py-2.5 px-3 bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {confirmProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {confirmProcessing ? 'Processing Order...' : 'Order & Reschedule'}
+                    </button>
+                  )}
                 </div>
 
                 <button
@@ -3756,9 +3776,20 @@ const PartsListSection = ({
                 return (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="p-3.5">
-                      {shortDesc && <p className="font-bold text-gray-900">{shortDesc}</p>}
-                      <p className={`${shortDesc ? 'text-[10px] text-gray-500 mt-0.5' : 'font-bold text-gray-900'}`}>Part #{p.partNumber}</p>
-                      {p.brand && <p className="text-[10px] text-gray-400">{p.brand}</p>}
+                      <div className="flex items-center gap-3">
+                        {p.imageUrl || p.itemImageUrl ? (
+                          <img src={p.imageUrl || p.itemImageUrl} alt={shortDesc || p.partNumber} className="w-10 h-10 object-contain rounded border border-gray-100 shrink-0 bg-gray-50" />
+                        ) : (
+                          <div className="w-10 h-10 rounded border border-gray-100 bg-gray-50 flex items-center justify-center shrink-0">
+                            <Package className="h-4 w-4 text-gray-300" />
+                          </div>
+                        )}
+                        <div>
+                          {shortDesc && <p className="font-bold text-gray-900">{shortDesc}</p>}
+                          <p className={`${shortDesc ? 'text-[10px] text-gray-500 mt-0.5' : 'font-bold text-gray-900'}`}>Part #{p.partNumber}</p>
+                          {p.brand && <p className="text-[10px] text-gray-400">{p.brand}</p>}
+                        </div>
+                      </div>
                     </td>
                     <td className="p-3.5 font-bold text-gray-600">{p.quantity}</td>
                     <td className="p-3.5">
