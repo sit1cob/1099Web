@@ -9,6 +9,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
   Tooltip, Legend, CartesianGrid 
 } from 'recharts';
+import { ga4EarningsViewed, ga4TabChanged } from '../utils/ga4DataLayer';
 
 type Tab = 'today' | 'week' | 'month' | 'ytd';
 
@@ -77,6 +78,8 @@ const EarningsPage = () => {
 
   // Tab switch navigator
   const handleTabSwitch = (tab: Tab) => {
+    ga4EarningsViewed(tab);
+    ga4TabChanged(tab, 'earnings');
     navigate(`/earnings?tab=${tab}`);
   };
 
@@ -552,7 +555,7 @@ const EarningsPage = () => {
                 <Award className="h-5.5 w-5.5 text-white" />
               </div>
               <div className="space-y-1">
-                <h4 className="font-bold text-gray-900 text-xs">Sasha Earnings Tip</h4>
+                <h4 className="font-bold text-gray-900 text-xs">Kris Earnings Tip</h4>
                 <p className="text-xs text-gray-600 leading-relaxed">
                   "Keep your customer feedback positive and check available jobs every morning to maximize your earnings."
                 </p>

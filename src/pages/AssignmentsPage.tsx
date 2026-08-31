@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { trackMarkArrived, trackApplianceUpdated, trackReschedule, trackPartsOrdered, trackPartAdded, trackJobCompleted, trackJobClaimed, trackPartDeleted, trackStatusChange, trackSOClaimed, trackSOCompleted, trackSOCustomerNotHome, trackSOCancelled, trackSOEstimateDeclined, trackSORescheduled, trackSOViewed, trackSOInProgress } from '../utils/clarityTracking';
+import { ga4SOViewed, ga4SOClaimed, ga4SOArrived, ga4SOCompleted, ga4SORescheduled, ga4SOCustomerNotHome, ga4SOCancelled, ga4SOEstimateDeclined, ga4StatusChange, ga4PartAdded, ga4PartDeleted, ga4PartsOrdered, ga4ApplianceUpdated, ga4SearchUsed, ga4TabChanged, ga4ModalOpened, ga4ButtonClick, ga4NonSearsJobCreated, ga4NonSearsJobUpdated } from '../utils/ga4DataLayer';
 import { mockDb } from '../api/mockData';
 import { formatUSDate } from '../utils/date';
 import {
@@ -133,7 +134,7 @@ const AssignmentsPage = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   
   // Success states
-  const [successMsg, setSuccessMsg] = useState<{ title: string; desc: string; type: 'reschedule' | 'complete' } | null>(null);
+  const [successMsg, setSuccessMsg] = useState<{ title: string; desc: string; type: 'reschedule' | 'complete' | 'error' } | null>(null);
 
   // Form states
   const [nonSearsForm, setNonSearsForm] = useState({
@@ -566,8 +567,18 @@ const AssignmentsPage = () => {
       if (nonSearsForm.notes) payload.notes = nonSearsForm.notes;
       if (editingNonSearsId) {
         await ApiService.updateNonShsJob(editingNonSearsId, payload);
+        ga4NonSearsJobUpdated(editingNonSearsId);
       } else {
         await ApiService.logNonShsJob(payload);
+        ga4NonSearsJobCreated({
+          source: nonSearsForm.source === 'Someone Else' ? (nonSearsForm.sourceOther || 'Someone Else') : nonSearsForm.source,
+          appliance: nonSearsForm.appliance,
+          brand: nonSearsForm.brand,
+          issue: nonSearsForm.issue,
+          zipCode: nonSearsForm.zipCode,
+          scheduledDate: nonSearsForm.scheduledDate,
+          clientType: nonSearsForm.clientType,
+        });
       }
       setShowLogNonSears(false);
       setEditingNonSearsId(null);
@@ -603,6 +614,7 @@ const AssignmentsPage = () => {
     try {
       await ApiService.updateAssignmentStatus(selectedId, 'arrived');
       trackMarkArrived(selectedId);
+      ga4SOArrived(selectedId);
       setShowArrivedConfirm(false);
       await loadData();
 
@@ -679,7 +691,8 @@ const AssignmentsPage = () => {
         return a;
       }));
       trackApplianceUpdated(selectedId);
-      closeApplianceDrawer();
+      ga4ApplianceUpdated(selectedId, applianceForm.brand, applianceForm.model);
+      setShowApplianceDrawer(false);
     } catch (e) {
       console.error(e);
     }
@@ -721,28 +734,26 @@ const AssignmentsPage = () => {
 
   const handleConfirmReschedule = async () => {
     if (!selectedId) return;
-    setRescheduleSubmitting(true);
-    setRescheduleWarning(null);
     try {
-      /* Photo upload — fire-and-forget */
-      if (reschedulePhoto) {
-        try {
-          await uploadToS3WithToken(selectedId, reschedulePhoto.file, `customer_not_home_${Date.now()}.jpg`, 'image/jpeg');
-        } catch {
-          setRescheduleWarning('Photo upload failed — proceeding with reschedule anyway.');
-        }
-      }
-
-      await ApiService.rescheduleAssignment(selectedId, {
-        reason: rescheduleForm.reason,
-        newScheduledDate: rescheduleForm.selectedDate,
+      const formattedDate = `${rescheduleForm.selectedDate}T${rescheduleForm.selectedTimeSlot.includes('8:00') ? '08:00' : rescheduleForm.selectedTimeSlot.includes('12:00') ? '12:00' : '16:00'}:00.000Z`;
+      const res = await ApiService.rescheduleAssignment(selectedId, {
+        reasonCode: rescheduleForm.reason,
+        requestedArrivalDate: formattedDate,
         notes: rescheduleForm.notes,
       });
+      
+      if (!res?.success) {
+        setSuccessMsg({
+          title: 'Reschedule Failed',
+          desc: res?.message || 'Failed to reschedule. Please try again.',
+          type: 'error'
+        });
+        return;
+      }
 
-      if (reschedulePhoto) URL.revokeObjectURL(reschedulePhoto.previewUrl);
-      setReschedulePhoto(null);
       trackReschedule(selectedId);
       trackSORescheduled(selectedId, rescheduleForm.reason);
+      ga4SORescheduled(selectedId, rescheduleForm.reason, rescheduleForm.selectedDate);
       setShowRescheduleWizard(false);
       setRescheduleForm({
         step: 1,
@@ -870,7 +881,7 @@ const AssignmentsPage = () => {
     } else if (allChecked) {
       const unavailableCount = cart.filter(item => !partsAvailability[item.partNo]).length;
       if (unavailableCount > 0) {
-        setPartsError(`${unavailableCount} part${unavailableCount > 1 ? 's are' : ' is'} unavailable and will not be included in your order.`);
+        setPartsError(`Order unavailable — one or more parts in your cart aren't ready to order. All parts must be available before you can place an order. Please remove the unavailable part(s) or check back later, then try again.`);
       }
       setAvailabilityChecked(true);
     }
@@ -899,7 +910,7 @@ const AssignmentsPage = () => {
       setPartsAvailability(availMap);
       const unavailableCount = cart.filter(item => !availMap[item.partNo]).length;
       if (unavailableCount > 0) {
-        setPartsError(`${unavailableCount} part${unavailableCount > 1 ? 's are' : ' is'} unavailable and will not be included in your order.`);
+        setPartsError(`Order unavailable — one or more parts in your cart aren't ready to order. All parts must be available before you can place an order. Please remove the unavailable part(s) or check back later, then try again.`);
         setAvailabilityChecked(true);
       } else {
         setAvailabilityChecked(true);
@@ -992,11 +1003,13 @@ const AssignmentsPage = () => {
       }
 
       trackPartsOrdered(selectedId);
+      ga4PartsOrdered(selectedId, cart.length, cart.map(item => ({ partNo: item.partNo, name: item.name })));
       setPartsRefreshKey(k => k + 1);
 
       if (partsError) {
         await ApiService.updateAssignmentStatus(selectedId, 'waiting_on_parts');
         trackStatusChange(selectedId, 'waiting_on_parts');
+      ga4StatusChange(selectedId, 'waiting_on_parts');
         setShowAddressConfirm(false);
         setShowPartsModal(false);
         setCart([]);
@@ -1022,7 +1035,7 @@ const AssignmentsPage = () => {
   };
 
   const handleAddPartsToJob = async () => {
-    handleSubmitPartsClick();
+    handleConfirmAndProceed();
   };
 
   // Complete job (Signature pad drawing functions)
@@ -1171,13 +1184,13 @@ const AssignmentsPage = () => {
       if (isCompleteEstimateDeclined) payload.estimateDeclineReason = completeForm.estimateDeclineReason;
 
       await ApiService.updateAssignmentStatusV3(selectedId, payload);
-
-      if (isCompleteCompleted) trackSOCompleted(selectedId, completeForm.completionType);
-      else if (isCompleteRescheduled) trackSORescheduled(selectedId, completeForm.rescheduleReason);
-      else if (isCompleteCNH) trackSOCustomerNotHome(selectedId);
-      else if (isCompleteCancelAtDoor) trackSOCancelled(selectedId);
-      else if (isCompleteEstimateDeclined) trackSOEstimateDeclined(selectedId);
-      else trackSOCompleted(selectedId, completeForm.completionType);
+      // Track specific funnel terminal state
+      if (isCompleteCompleted) { trackSOCompleted(selectedId, completeForm.completionType); ga4SOCompleted(selectedId, completeForm.completionType, completeForm.repairCode); }
+      else if (isCompleteRescheduled) { trackSORescheduled(selectedId, completeForm.rescheduleReason); ga4SORescheduled(selectedId, completeForm.rescheduleReason); }
+      else if (isCompleteCNH) { trackSOCustomerNotHome(selectedId); ga4SOCustomerNotHome(selectedId, completeForm.cnhReason); }
+      else if (isCompleteCancelAtDoor) { trackSOCancelled(selectedId); ga4SOCancelled(selectedId, completeForm.cancelReason); }
+      else if (isCompleteEstimateDeclined) { trackSOEstimateDeclined(selectedId); ga4SOEstimateDeclined(selectedId, completeForm.estimateDeclineReason); }
+      else { trackSOCompleted(selectedId, completeForm.completionType); ga4SOCompleted(selectedId, completeForm.completionType, completeForm.repairCode); }
 
       if (completionPhoto) URL.revokeObjectURL(completionPhoto.previewUrl);
       setCompletionPhoto(null);
@@ -1264,7 +1277,7 @@ const AssignmentsPage = () => {
               
               {/* Log Non-Sears Job Trigger */}
               <button
-                onClick={() => setShowLogNonSears(true)}
+                onClick={() => { setShowLogNonSears(true); ga4ModalOpened('log_non_sears_job'); }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:border-blue-300 rounded-lg text-xs font-bold text-blue-600 transition-all cursor-pointer shadow-sm"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -1344,7 +1357,7 @@ const AssignmentsPage = () => {
                   <Sparkles className="h-4.5 w-4.5 animate-pulse" />
                 </div>
                 <div className="text-[11px] leading-relaxed text-blue-700">
-                  <span className="font-extrabold text-blue-800">Sasha Route Intelligence:</span> Suggested sequence optimizes drive time. Map Joe Matteo <span className="font-mono">SO-13694840</span> first, then Joe Matteo <span className="font-mono">SO-13694841</span> to save 12 mins.
+                  <span className="font-extrabold text-blue-800">Kris Route Intelligence:</span> Suggested sequence optimizes drive time. Map Joe Matteo <span className="font-mono">SO-13694840</span> first, then Joe Matteo <span className="font-mono">SO-13694841</span> to save 12 mins.
                 </div>
               </div>
 
@@ -1461,7 +1474,7 @@ const AssignmentsPage = () => {
               <div className="p-3.5 border-b border-blue-200 bg-blue-50 text-[11px] leading-relaxed text-gray-700 select-none shrink-0 flex items-start gap-2.5">
                 <Sparkles className="h-4.5 w-4.5 text-blue-500 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-extrabold text-blue-700">Sasha Schedule Insight:</span>{' '}
+                  <span className="font-extrabold text-blue-700">Kris Schedule Insight:</span>{' '}
                   "Tuesday has 2 jobs scheduled in Hoffman Estates. Claiming available jobs in Schaumburg or Palatine for Wednesday June 3 fits perfectly inside your route limits."
                 </div>
               </div>
@@ -1660,6 +1673,7 @@ const AssignmentsPage = () => {
                           if (res.success) {
                             trackJobClaimed(activeJobDetails.id);
                             trackSOClaimed(activeJobDetails.id);
+                            ga4SOClaimed(activeJobDetails.id, activeJobDetails.soNumber);
                             alert('Job claimed successfully!');
                             loadData();
                           } else {
@@ -1685,7 +1699,7 @@ const AssignmentsPage = () => {
                   {activeJobDetails._type === 'sears' && activeJobDetails.status === 'assigned' && (
                     <>
                       <button
-                        onClick={() => setShowArrivedConfirm(true)}
+                        onClick={() => { setShowArrivedConfirm(true); ga4ModalOpened('mark_arrived_confirm'); }}
                         className="flex items-center gap-2 px-4 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                       >
                         <Navigation className="h-4 w-4" />
@@ -1696,7 +1710,7 @@ const AssignmentsPage = () => {
 
                   {activeJobDetails._type === 'sears' && !['in_progress', 'completed'].includes(activeJobDetails.status) && (
                     <button
-                      onClick={() => setShowApplianceDrawer(true)}
+                      onClick={() => { setShowApplianceDrawer(true); ga4ModalOpened('scan_edit_appliance'); }}
                       className="flex items-center gap-2 px-4 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                     >
                       <PlayCircle className="h-4 w-4" />
@@ -1707,7 +1721,7 @@ const AssignmentsPage = () => {
                   {activeJobDetails._type === 'sears' && activeJobDetails.status === 'arrived' && (
                     <>
                       <button
-                        onClick={() => setShowPartsModal(true)}
+                        onClick={() => { setShowPartsModal(true); setPartsSearch(prev => ({ ...prev, query: activeJobDetails?.job?.applianceModel || '' })); ga4ModalOpened('add_parts'); }}
                         className="flex items-center gap-2 px-3.5 py-2 border border-gray-200 hover:border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                       >
                         <Plus className="h-4 w-4" />
@@ -1715,7 +1729,7 @@ const AssignmentsPage = () => {
                       </button>
 
                       <button
-                        onClick={() => setShowRescheduleWizard(true)}
+                        onClick={() => { setShowRescheduleWizard(true); ga4ModalOpened('reschedule_wizard'); }}
                         className="flex items-center gap-2 px-3.5 py-2 border border-gray-200 hover:border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                       >
                         <Calendar className="h-4 w-4" />
@@ -1723,7 +1737,7 @@ const AssignmentsPage = () => {
                       </button>
 
                       <button
-                        onClick={() => setShowCompleteModal(true)}
+                        onClick={() => { setShowCompleteModal(true); ga4ModalOpened('complete_job'); }}
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-650 to-teal-650 hover:from-emerald-600 hover:to-teal-600 border border-emerald-500/25 hover:border-emerald-400/30 text-gray-900 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/10 hover:scale-[1.02] duration-200"
                       >
                         <CheckCircle className="h-4 w-4" />
@@ -1738,7 +1752,7 @@ const AssignmentsPage = () => {
                         Awaiting Back-ordered Parts
                       </span>
                       <button
-                        onClick={() => setShowRescheduleWizard(true)}
+                        onClick={() => { setShowRescheduleWizard(true); ga4ModalOpened('reschedule_wizard'); }}
                         className="flex items-center gap-2 px-3.5 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                       >
                         <Calendar className="h-4 w-4" />
@@ -2005,7 +2019,7 @@ const AssignmentsPage = () => {
                         </div>
                         {activeJobDetails.status === 'arrived' && (
                           <button
-                            onClick={() => setShowPartsModal(true)}
+                            onClick={() => { setShowPartsModal(true); setPartsSearch(prev => ({ ...prev, query: activeJobDetails?.job?.applianceModel || '' })); }}
                             className="text-[11px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1 transition-colors"
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -2024,11 +2038,13 @@ const AssignmentsPage = () => {
                           setSelectedTrackPart(null);
                           setTrackDetailBackToSummary(false);
                           setShowTrackPartsModal(true);
+                          ga4ModalOpened('track_parts');
                         }}
                         onTrackDetail={(part) => {
                           setSelectedTrackPart(part);
                           setTrackDetailBackToSummary(false);
                           setShowTrackDetailModal(true);
+                          ga4ModalOpened('track_part_detail');
                         }}
                       />
                     </div>
@@ -2047,7 +2063,7 @@ const AssignmentsPage = () => {
                         </div>
                         <div>
                           <p className="text-xs font-bold text-gray-900">Need Diagnostic Assistance?</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5 leading-normal">Ask Sasha AI for repair tips, wiring diagrams, and parts advice for this model.</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5 leading-normal">Ask Kris AI for repair tips, wiring diagrams, and parts advice for this model.</p>
                         </div>
                       </div>
                       
@@ -2055,7 +2071,7 @@ const AssignmentsPage = () => {
                         onClick={() => window.location.href = `/chat?query=how%20to%20diagnose%20model%20${activeJobDetails.job?.applianceModel || 'VA6013'}`}
                         className="relative z-10 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20 hover:scale-[1.02] cursor-pointer whitespace-nowrap"
                       >
-                        Consult Sasha AI
+                        Consult Kris AI
                       </button>
                     </div>
                   )}
@@ -2438,31 +2454,6 @@ const AssignmentsPage = () => {
           <form onSubmit={handleSaveAppliance} className="flex-grow flex flex-col justify-between overflow-hidden">
             <div className="p-6 space-y-5 overflow-y-auto flex-grow">
               
-              {/* Scan simulation Button */}
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
-                <p className="text-xs text-blue-700 leading-relaxed font-semibold">
-                  OCR Label Scanner: Scan manufacturer bar-tag to automatically populate brand, model, and serial details.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleScanAppliance}
-                  disabled={applianceForm.scanning}
-                  className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {applianceForm.scanning ? (
-                    <>
-                      <Loader2 className="h-4.5 w-4.5 animate-spin text-white" />
-                      <span>Scanning tag with camera...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="h-4.5 w-4.5" />
-                      <span>Scan Appliance Label Tag</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Manufacturer Brand</label>
                 <input
@@ -2756,6 +2747,13 @@ const AssignmentsPage = () => {
               
               <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-4 shrink-0">
                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <button
+                    onClick={() => { setShowPartsModal(false); setCart([]); setPartsError(null); }}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
+                    title="Go Back"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
                   <Wrench className="h-5 w-5 text-blue-500" />
                   <span>Sears 1099 Parts Catalog Search</span>
                 </h3>
@@ -2860,17 +2858,26 @@ const AssignmentsPage = () => {
                         key={`${part.itemId || part.partNo}-${idx}`}
                         className="p-3 bg-white border border-gray-200 rounded-xl flex items-center justify-between gap-4"
                       >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-extrabold text-gray-900">{part.name}</span>
-                            <span className="text-[10px] text-gray-400 font-mono">Part #{part.partNo}</span>
+                        <div className="flex items-center gap-3">
+                          {part.imageUrl ? (
+                            <img src={part.imageUrl} alt={part.name} className="w-10 h-10 object-contain rounded border border-gray-100 shrink-0 bg-gray-50" />
+                          ) : (
+                            <div className="w-10 h-10 rounded border border-gray-100 bg-gray-50 flex items-center justify-center shrink-0">
+                              <Package className="h-4 w-4 text-gray-300" />
+                            </div>
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-extrabold text-gray-900">{part.name}</span>
+                              <span className="text-[10px] text-gray-400 font-mono">Part #{part.partNo}</span>
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-0.5">{part.description}</p>
                           </div>
-                          <p className="text-[10px] text-gray-500 mt-0.5">{part.description}</p>
                         </div>
 
                         <button
                           onClick={() => handleAddToCart(part)}
-                          className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/30 hover:border-blue-500 rounded-lg text-[10px] font-bold text-blue-400 transition-colors cursor-pointer"
+                          className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/30 hover:border-blue-500 rounded-lg text-[10px] font-bold text-blue-400 transition-colors cursor-pointer shrink-0"
                         >
                           Add to Cart
                         </button>
@@ -2915,9 +2922,18 @@ const AssignmentsPage = () => {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
-                        <div>
-                          <p className="text-[11px] font-bold text-gray-900 truncate pr-5">{item.name}</p>
-                          <p className="text-[9px] text-gray-400 font-mono mt-0.2">Part #{item.partNo}</p>
+                        <div className="flex items-center gap-2.5">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.name} className="w-9 h-9 object-contain rounded border border-gray-100 shrink-0 bg-white" />
+                          ) : (
+                            <div className="w-9 h-9 rounded border border-gray-100 bg-white flex items-center justify-center shrink-0">
+                              <Package className="h-3.5 w-3.5 text-gray-300" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-[11px] font-bold text-gray-900 truncate pr-5">{item.name}</p>
+                            <p className="text-[9px] text-gray-400 font-mono mt-0.5">Part #{item.partNo}</p>
+                          </div>
                         </div>
                         {isChecked && (
                           <div>
@@ -2975,25 +2991,34 @@ const AssignmentsPage = () => {
                   <span className="text-gray-900">{cart.reduce((sum, item) => sum + item.quantity, 0)} item{cart.reduce((sum, item) => sum + item.quantity, 0) !== 1 ? 's' : ''}</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <button
                     onClick={handleCheckAvailability}
                     disabled={cart.length === 0}
-                    className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 text-[10px] font-extrabold text-gray-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 text-[10px] font-extrabold text-gray-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50 w-full"
                   >
                     {checkingAvailability ? 'Checking...' : 'Check Parts Availability'}
                   </button>
-                  <button
-                    onClick={handleAddPartsToJob}
-                    disabled={
-                      cart.length === 0 ||
-                      !availabilityChecked ||
-                      (availabilityChecked && cart.every(item => partsAvailability[item.partNo] === false))
-                    }
-                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {partsError ? 'Order & Reschedule' : 'Submit Parts'}
-                  </button>
+                  {availabilityChecked && !partsError && cart.length > 0 && (
+                    <button
+                      onClick={handleAddPartsToJob}
+                      disabled={confirmProcessing}
+                      className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {confirmProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {confirmProcessing ? 'Adding Parts...' : 'Add Parts to Order'}
+                    </button>
+                  )}
+                  {partsError && cart.length > 0 && availabilityChecked && cart.some(item => partsAvailability[item.partNo] === true) && (
+                    <button
+                      onClick={handleAddPartsToJob}
+                      disabled={confirmProcessing}
+                      className="py-2.5 px-3 bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {confirmProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {confirmProcessing ? 'Processing Order...' : 'Order & Reschedule'}
+                    </button>
+                  )}
                 </div>
 
                 <button
@@ -3403,8 +3428,8 @@ const AssignmentsPage = () => {
       {successMsg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md shadow-2xl p-6 text-center text-gray-700">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto mb-4">
-              <Check className="h-6 w-6" />
+            <div className={`w-12 h-12 rounded-full ${successMsg.type === 'error' ? 'bg-red-500/10 border border-red-500/30 text-red-500' : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'} flex items-center justify-center mx-auto mb-4`}>
+              {successMsg.type === 'error' ? <X className="h-6 w-6" /> : <Check className="h-6 w-6" />}
             </div>
             
             <h3 className="text-lg font-bold text-gray-900 tracking-tight">{successMsg.title}</h3>
@@ -3824,9 +3849,20 @@ const PartsListSection = ({
                 return (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="p-3.5">
-                      {shortDesc && <p className="font-bold text-gray-900">{shortDesc}</p>}
-                      <p className={`${shortDesc ? 'text-[10px] text-gray-500 mt-0.5' : 'font-bold text-gray-900'}`}>Part #{p.partNumber}</p>
-                      {p.brand && <p className="text-[10px] text-gray-400">{p.brand}</p>}
+                      <div className="flex items-center gap-3">
+                        {p.imageUrl || p.itemImageUrl ? (
+                          <img src={p.imageUrl || p.itemImageUrl} alt={shortDesc || p.partNumber} className="w-10 h-10 object-contain rounded border border-gray-100 shrink-0 bg-gray-50" />
+                        ) : (
+                          <div className="w-10 h-10 rounded border border-gray-100 bg-gray-50 flex items-center justify-center shrink-0">
+                            <Package className="h-4 w-4 text-gray-300" />
+                          </div>
+                        )}
+                        <div>
+                          {shortDesc && <p className="font-bold text-gray-900">{shortDesc}</p>}
+                          <p className={`${shortDesc ? 'text-[10px] text-gray-500 mt-0.5' : 'font-bold text-gray-900'}`}>Part #{p.partNumber}</p>
+                          {p.brand && <p className="text-[10px] text-gray-400">{p.brand}</p>}
+                        </div>
+                      </div>
                     </td>
                     <td className="p-3.5 font-bold text-gray-600">{p.quantity}</td>
                     <td className="p-3.5">

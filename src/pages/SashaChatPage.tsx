@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../api/apiService';
 import { Bot, RefreshCw, ExternalLink, Loader2 } from 'lucide-react';
+import { ga4ChatAIOpened, ga4ChatAIRefreshed, ga4ChatAIOpenedExternal } from '../utils/ga4DataLayer';
 
 const SashaChatPage = ({ active = true }: { active?: boolean }) => {
   const { user } = useAuth();
@@ -9,13 +10,12 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
   const [reloadKey, setReloadKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const baseChatUrl = 'https://tm-qa.searskairos.ai/';
+  const baseChatUrl = 'https://1099sasha-qa.searskairos.ai/';
   const token = ApiService.getToken() || '';
+  const username = user?.username || 'test_vendor';
 
-  // Construct URL with auth query params
-  const iframeUrl = token
-    ? `${baseChatUrl}?token=${encodeURIComponent(token)}&accessToken=${encodeURIComponent(token)}`
-    : baseChatUrl;
+  // Construct URL with username, source, and token
+  const iframeUrl = `${baseChatUrl}?username=${encodeURIComponent(username)}&source=web_app&token=${encodeURIComponent(token)}`;
 
   // Set shared authorization cookies on mount and reload key change
   useEffect(() => {
@@ -275,11 +275,13 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
   };
 
   const handleRefresh = () => {
+    ga4ChatAIRefreshed();
     setIsLoading(true);
     setReloadKey(prev => prev + 1);
   };
 
   const handleOpenExternal = () => {
+    ga4ChatAIOpenedExternal();
     window.open(iframeUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -293,7 +295,7 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-[16px] text-gray-900">Sasha Assistant</h2>
+              <h2 className="font-bold text-[16px] text-gray-900">Kris Assistant</h2>
               <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-extrabold uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 ACTIVE
@@ -308,7 +310,7 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
           <button
             onClick={handleRefresh}
             className="p-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 text-gray-400 hover:text-gray-900"
-            title="Reload Sasha Assistant"
+            title="Reload Kris Assistant"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin text-blue-400' : ''}`} />
           </button>
@@ -335,7 +337,7 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
             </div>
             <div className="flex items-center gap-2 text-gray-700 text-sm font-semibold">
               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-              <span>Connecting to Sasha AI Assistant...</span>
+              <span>Connecting to Kris AI Assistant...</span>
             </div>
             <p className="text-xs text-gray-400 mt-2">Syncing secure console session</p>
           </div>
@@ -348,7 +350,7 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
           onLoad={handleIframeLoad}
           className="w-full h-full border-0 bg-transparent"
           allow="microphone; camera; clipboard-write"
-          title="Sasha AI Assistant Console"
+          title="Kris AI Assistant Console"
         />
       </div>
     </div>

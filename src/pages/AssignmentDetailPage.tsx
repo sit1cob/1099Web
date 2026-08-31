@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { trackServiceOrderFunnel } from '../utils/clarityTracking';
+import { ga4StatusChange } from '../utils/ga4DataLayer';
 import { formatUSDate } from '../utils/date';
 import {
   ArrowLeft, Phone, MapPin, Calendar, Wrench, Clock, User,
@@ -32,6 +33,7 @@ const AssignmentDetailPage = () => {
     try {
       await ApiService.updateAssignmentStatus(id, newStatus);
       trackServiceOrderFunnel(id, newStatus);
+      ga4StatusChange(id, newStatus);
       await load();
     } catch (err: any) {
       alert(err.message || 'Failed to update status');

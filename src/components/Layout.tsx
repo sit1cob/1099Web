@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ApiService from '../api/apiService';
+import { ga4PageView, ga4UserProfileLoaded } from '../utils/ga4DataLayer';
 import SashaChatPage from '../pages/SashaChatPage';
 import {
   LayoutDashboard, ClipboardList, Wrench, DollarSign, LogOut,
@@ -18,23 +19,31 @@ const Layout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const profileLoadedFired = useRef(false);
 
-  // Fetch vendor profile to get the correct business name
+  // Fetch vendor profile to get the correct business name + persist profile fields
   useEffect(() => {
     ApiService.getVendorProfile().then(res => {
       if (res.success && res.data) {
-        const name = res.data.vendorName || res.data.name || null;
+        const profile = res.data;
+        const name = profile.vendorName || profile.name || null;
         setDisplayName(name);
-        // Also update stored user so name stays consistent
-        if (name) {
-          try {
-            const stored = JSON.parse(localStorage.getItem('user') || '{}');
-            if (stored && stored.vendorName !== name) {
-              stored.vendorName = name;
-              stored.name = name;
-              localStorage.setItem('user', JSON.stringify(stored));
-            }
-          } catch (_) {}
+        // Persist profile fields to localStorage so logout/session_restored can use them
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          if (name) { stored.vendorName = name; stored.name = name; }
+          if (profile.zipCode) stored.zipCode = profile.zipCode;
+          if (profile.city) stored.city = profile.city;
+          if (profile.state) stored.state = profile.state;
+          if (profile.phone || profile.mobile) stored.phone = profile.phone || profile.mobile;
+          if (profile.email) stored.email = profile.email;
+          if (profile.addressLine1) stored.addressLine1 = profile.addressLine1;
+          localStorage.setItem('user', JSON.stringify(stored));
+        } catch (_) {}
+        // Fire GA4 event only once
+        if (!profileLoadedFired.current) {
+          ga4UserProfileLoaded(profile);
+          profileLoadedFired.current = true;
         }
       }
     }).catch(() => {});
@@ -44,6 +53,32 @@ const Layout = () => {
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname, location.search]);
+
+  // GA4 page view — only on pathname changes (not query param changes)
+  useEffect(() => {
+    const pageNames: Record<string, string> = {
+      '/': 'Dashboard',
+      '/assignments': 'My Jobs',
+      '/available-jobs': 'Available Jobs',
+      '/parts': 'Parts & Inventory',
+      '/earnings': 'Earnings',
+      '/account': 'Account',
+      '/chat': 'Chat AI',
+    };
+    // Check exact match first, then match dynamic routes
+    let pageName = pageNames[location.pathname];
+    if (!pageName) {
+      const path = location.pathname;
+      if (path.match(/^\/assignments\/[^/]+\/complete-success$/)) pageName = 'Job Complete Success';
+      else if (path.match(/^\/assignments\/[^/]+\/complete$/)) pageName = 'Job Complete';
+      else if (path.match(/^\/assignments\/[^/]+\/reschedule$/)) pageName = 'Reschedule';
+      else if (path.match(/^\/assignments\/[^/]+\/customer-not-home$/)) pageName = 'Customer Not Home';
+      else if (path.match(/^\/assignments\/[^/]+$/)) pageName = 'Assignment Detail';
+      else if (path.match(/^\/jobs\/[^/]+$/)) pageName = 'Job Detail';
+      else pageName = path;
+    }
+    ga4PageView(pageName, location.pathname);
+  }, [location.pathname]);
 
   // Keep track of which sidebar sections are expanded
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
@@ -112,7 +147,7 @@ const Layout = () => {
               </div>
               <div>
                 <h1 className="font-extrabold text-lg tracking-wider" style={{ color: '#ffffff' }}>SEARS KAIROS</h1>
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#60a5fa' }}>SASHA 1099 PORTAL</p>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#60a5fa' }}>KRIS 1099 PORTAL</p>
               </div>
             </div>
             <button
@@ -195,7 +230,7 @@ const Layout = () => {
           >
             <div className="flex items-center gap-3">
               <MessageSquare className="h-5 w-5 shrink-0 text-cyan-400" />
-              <span>Chat AI (Sasha)</span>
+              <span>Chat AI (Kris)</span>
             </div>
             <span className="relative flex h-2 w-2 mr-1">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

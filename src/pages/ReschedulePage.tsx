@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { RESCHEDULE_REASONS, TIME_WINDOWS } from '../types/reschedule.types';
 import { ArrowLeft, Loader2, CalendarClock, Check } from 'lucide-react';
+import { ga4SORescheduled } from '../utils/ga4DataLayer';
 
 const ReschedulePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,11 +20,16 @@ const ReschedulePage = () => {
 
     setIsSubmitting(true);
     try {
-      await ApiService.rescheduleAssignment(id!, {
+      const res = await ApiService.rescheduleAssignment(id!, {
         reason,
         newScheduledDate: date,
         notes,
       });
+      if (!res?.success) {
+        alert(res?.message || 'Failed to reschedule');
+        return;
+      }
+      ga4SORescheduled(id!, reason, date);
       alert('Assignment rescheduled successfully');
       navigate(`/assignments/${id}`);
     } catch (err: any) {

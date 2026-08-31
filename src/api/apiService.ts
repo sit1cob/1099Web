@@ -9,6 +9,7 @@ import { RescheduleRequest, RescheduleResponse } from '../types/reschedule.types
 import { VendorProfileResponse } from '../types/vendor.types';
 import { API_CONFIG, V2_API_CONFIG, APP_CONFIG } from '../utils/config';
 import { trackApiError } from '../utils/clarityTracking';
+import { ga4ApiError } from '../utils/ga4DataLayer';
 
 const TOKEN_ERROR_PATTERNS = [
   'invalid token', 'expired token', 'token expired', 'jwt expired',
@@ -95,7 +96,7 @@ class ApiService {
         const method = error?.config?.method || 'GET';
         const isLoginEndpoint = url.includes('/api/auth/login');
 
-        // Track every API error in Clarity
+        // Track every API error in Clarity + GA4
         trackApiError({
           method,
           url,
@@ -105,6 +106,8 @@ class ApiService {
           errorCode: error?.code,
           responseData: error?.response?.data,
         });
+        const endpoint = (url || '').replace(/https?:\/\/[^/]+/, '').split('?')[0];
+        ga4ApiError(method, endpoint, status, error?.message);
 
         if ((status === 401 || status === 403 || isTokenError(error?.response?.data)) && !isLoginEndpoint) {
           forceLogout();

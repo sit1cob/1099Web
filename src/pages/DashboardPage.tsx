@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../api/apiService';
@@ -10,6 +10,7 @@ import {
   Zap, Calendar, ChevronRight, RefreshCw, Loader2,
   MessageSquare, ArrowRight, Info,
 } from 'lucide-react';
+import { ga4DashboardLoaded, ga4TabChanged } from '../utils/ga4DataLayer';
 
 /* ─── Status config ─────────────────────────────────────────────── */
 const STATUS_CFG: Record<string, { label: string; bar: string; bg: string; text: string }> = {
@@ -37,6 +38,7 @@ const DashboardPage = () => {
   const [allAssignments, setAllAssignments] = useState<AssignmentListItem[]>([]);
   const [isLoading, setIsLoading]       = useState(true);
   const [earningsTab, setEarningsTab]   = useState<'today' | 'week' | 'month'>('week');
+  const hasFiredDashboardLoaded = useRef(false);
 
   const loadDashboard = async () => {
     setIsLoading(true);
@@ -52,6 +54,12 @@ const DashboardPage = () => {
       if (dashRes.success)   setDashData(dashRes.data   || null);
       if (vendorRes.success) setVendor(vendorRes.data   || null);
       if (assignRes.success) setAllAssignments(assignRes.data || []);
+      const jobCount = assignRes.data?.length || 0;
+      const todayCount = dashRes.data?.todays_job?.length || 0;
+      if (!hasFiredDashboardLoaded.current) {
+        ga4DashboardLoaded(jobCount, todayCount);
+        hasFiredDashboardLoaded.current = true;
+      }
     } catch (err) {
       console.error('Dashboard load error:', err);
     } finally {
@@ -290,7 +298,7 @@ const DashboardPage = () => {
               </div>
               <div className="flex-grow min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-900 text-sm">Ask Sasha Anything</span>
+                  <span className="font-bold text-gray-900 text-sm">Ask Kris Anything</span>
                   <span
                     className="px-1.5 py-0.5 rounded text-[9px] font-extrabold tracking-widest text-white shrink-0"
                     style={{ backgroundColor: '#003D82' }}
