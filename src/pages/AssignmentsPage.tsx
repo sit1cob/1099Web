@@ -720,7 +720,7 @@ const AssignmentsPage = () => {
     const formData = new FormData();
     Object.entries(uploadFields as Record<string, string>).forEach(([k, v]) => formData.append(k, v));
     formData.append('file', file);
-    await fetch(uploadUrl, { method: 'POST', body: formData });
+    await fetch(uploadUrl, { method: 'POST', body: formData, mode: 'no-cors' });
     await ApiService.consumePhotoTokens(assignmentId, [token]);
   };
 

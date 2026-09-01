@@ -893,7 +893,7 @@ class ApiService {
         formData.append(key, value as string);
       });
       formData.append('file', file);
-      await fetch(uploadUrl, { method: 'POST', body: formData });
+      await fetch(uploadUrl, { method: 'POST', body: formData, mode: 'no-cors' });
     } catch (error: any) {
       console.error('uploadPhotoToS3 failed:', error?.message);
       throw error;

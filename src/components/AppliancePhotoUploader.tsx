@@ -101,7 +101,7 @@ const AppliancePhotoUploader = forwardRef<AppliancePhotoUploaderHandle, Applianc
             formData.append(k, v)
           );
           formData.append('file', entry.file);
-          await fetch(uploadUrl, { method: 'POST', body: formData });
+          await fetch(uploadUrl, { method: 'POST', body: formData, mode: 'no-cors' });
 
           /* Step 3 — Consume token */
           await ApiService.consumePhotoTokens(assignmentId, [token]);
