@@ -1,5 +1,4 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
-import axios from 'axios';
 import { Camera, Image as ImageIcon, X, Loader2, AlertTriangle } from 'lucide-react';
 import ApiService from '../api/apiService';
 
@@ -84,8 +83,9 @@ const AppliancePhotoUploader = forwardRef<AppliancePhotoUploaderHandle, Applianc
 
     /* ── Upload single photo (Steps 1 → 2 → 3) with retry ── */
     const uploadSinglePhoto = async (entry: PhotoEntry, index: number, maxRetries = 2): Promise<boolean> => {
-      const fileName = `appliance_photo_${Date.now()}_${index}.jpg`;
-      const mimeType = 'image/jpeg';
+      const mimeType = entry.file.type || 'image/jpeg';
+      const ext = mimeType.split('/')[1] || 'jpg';
+      const fileName = `appliance_photo_${Date.now()}_${index}.${ext}`;
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -95,15 +95,13 @@ const AppliancePhotoUploader = forwardRef<AppliancePhotoUploaderHandle, Applianc
           if (!tokenEntry) throw new Error('No upload token received');
           const { token, uploadUrl, uploadFields } = tokenEntry;
 
-          /* Step 2 — Upload file to S3 (NO Authorization header) */
+          /* Step 2 — Upload file to S3 (use fetch to avoid axios global headers) */
           const formData = new FormData();
           Object.entries(uploadFields as Record<string, string>).forEach(([k, v]) =>
             formData.append(k, v)
           );
           formData.append('file', entry.file);
-          await axios.post(uploadUrl, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
+          await fetch(uploadUrl, { method: 'POST', body: formData });
 
           /* Step 3 — Consume token */
           await ApiService.consumePhotoTokens(assignmentId, [token]);

@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { trackMarkArrived, trackApplianceUpdated, trackReschedule, trackPartsOrdered, trackPartAdded, trackJobCompleted, trackJobClaimed, trackPartDeleted, trackStatusChange, trackSOClaimed, trackSOCompleted, trackSOCustomerNotHome, trackSOCancelled, trackSOEstimateDeclined, trackSORescheduled, trackSOViewed, trackSOInProgress } from '../utils/clarityTracking';
@@ -721,7 +720,7 @@ const AssignmentsPage = () => {
     const formData = new FormData();
     Object.entries(uploadFields as Record<string, string>).forEach(([k, v]) => formData.append(k, v));
     formData.append('file', file);
-    await axios.post(uploadUrl, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    await fetch(uploadUrl, { method: 'POST', body: formData });
     await ApiService.consumePhotoTokens(assignmentId, [token]);
   };
 
@@ -1173,7 +1172,9 @@ const AssignmentsPage = () => {
       /* Phase 2 — Upload completion photo (non-blocking) */
       if (completionPhoto) {
         try {
-          await uploadToS3WithToken(selectedId, completionPhoto.file, `completion_photo_${Date.now()}.jpg`, 'image/jpeg');
+          const cMime = completionPhoto.file.type || 'image/jpeg';
+          const cExt = cMime.split('/')[1] || 'jpg';
+          await uploadToS3WithToken(selectedId, completionPhoto.file, `completion_photo_${Date.now()}.${cExt}`, cMime);
         } catch {
           warnings.push('Completion photo upload failed — proceeding anyway.');
         }

@@ -2,7 +2,7 @@
 
 **GTM Container ID:** `GTM-KD6BK34Z`
 **Implementation File:** `src/utils/ga4DataLayer.ts`
-**Last Updated:** August 25, 2026
+**Last Updated:** August 31, 2026
 
 All events are pushed to `window.dataLayer` and captured by GTM for forwarding to GA4.
 
@@ -13,9 +13,10 @@ All events are pushed to `window.dataLayer` and captured by GTM for forwarding t
 | Event Name | Trigger | Parameters | Source File |
 |---|---|---|---|
 | `login` | Successful vendor login | `method`, `user_id`, `vendor_id`, `vendor_name`, `user_role`, `user_zip_code`, `user_city`, `user_state`, `user_phone` | `AuthContext.tsx` |
+| `user_profile_loaded` | Vendor profile API response received (fires once per app lifecycle) | `vendor_name`, `user_zip_code`, `user_city`, `user_state`, `user_phone`, `user_email`, `user_address` | `Layout.tsx` |
 | `login_failed` | Failed login attempt | `user_id`, `error_message` | `AuthContext.tsx` |
 | `logout` | User logs out | `user_id`, `vendor_id`, `vendor_name`, `user_role`, `user_zip_code`, `user_city`, `user_state`, `user_phone` | `AuthContext.tsx` |
-| `session_restored` | Returning user detected on browser refresh/new tab (fires once per app lifecycle) | `user_id`, `vendor_id`, `vendor_name`, `user_role`, `user_zip_code` | `AuthContext.tsx` |
+| `session_restored` | Returning user detected on browser refresh/new tab (fires once per app lifecycle) | `user_id`, `vendor_id`, `vendor_name`, `user_role`, `user_zip_code`, `user_city`, `user_state` | `AuthContext.tsx` |
 
 > **Note:** `session_restored` fires only once when the app initially loads with a stored session (browser refresh or new tab). It does **not** fire on in-app navigation or tab changes.
 
@@ -32,6 +33,8 @@ All events are pushed to `window.dataLayer` and captured by GTM for forwarding t
 | `user_city` | string | `"Hollywood"` | Technician's city |
 | `user_state` | string | `"FL"` | Technician's state |
 | `user_phone` | string | `"555-123-4567"` | Technician's phone number |
+| `user_email` | string | `"tech@example.com"` | Technician's email address |
+| `user_address` | string | `"123 Main St"` | Technician's street address |
 | `error_message` | string | `"Invalid credentials"` | Login failure reason |
 
 ---
@@ -69,6 +72,7 @@ These events track the full lifecycle of a service order assignment.
 
 | Event Name | Trigger | Parameters | Source File(s) |
 |---|---|---|---|
+| `so_viewed` | Technician opens an assignment detail | `assignment_id`, `so_number`, `appliance_type` | `AssignmentsPage.tsx` |
 | `so_claimed` | Technician claims an available job | `assignment_id`, `so_number` | `AssignmentsPage.tsx`, `JobDetailPage.tsx` |
 | `so_arrived` | Technician marks arrived at customer site | `assignment_id` | `AssignmentsPage.tsx` |
 | `so_in_progress` | Job status changed to in_progress | `assignment_id` | `AssignmentsPage.tsx` |
@@ -85,6 +89,7 @@ These events track the full lifecycle of a service order assignment.
 |---|---|---|---|
 | `assignment_id` | string | `"SO-13694840"` | Service order / assignment ID |
 | `so_number` | string | `"13694840"` | Service order number |
+| `appliance_type` | string | `"Washer"` | Appliance type for the service order |
 | `completion_type` | string | `"Completed"` | How the job was completed |
 | `repair_code` | string | `"Mechanical Failure"` | Repair diagnosis code |
 | `reschedule_reason` | string | `"parts_delayed"` | Reason for reschedule |
@@ -245,6 +250,21 @@ These events track the full lifecycle of a service order assignment.
 
 ---
 
+## 13. Clarity Integration Events
+
+| Event Name | Trigger | Parameters | Source File |
+|---|---|---|---|
+| `clarity_initialized` | Microsoft Clarity SDK finishes loading (detected via `_clsk` / `_clck` cookies) | `clarity_user_id`, `clarity_session_id` | `clarityTracking.ts` |
+
+### Parameter Details
+
+| Parameter | Type | Example | Description |
+|---|---|---|---|
+| `clarity_user_id` | string | `"abc123xyz"` | Clarity anonymous user ID (from `_clck` cookie) |
+| `clarity_session_id` | string | `"def456uvw"` | Clarity session ID (from `_clsk` cookie) |
+
+---
+
 ## Deduplication
 
 A dedup guard in `pushEvent()` prevents the same event from firing twice within 300ms (handles React StrictMode double-rendering in dev). Additionally, `session_restored` and `dashboard_loaded` use `useRef` guards to ensure they fire only once per app lifecycle.
@@ -270,7 +290,7 @@ A dedup guard in `pushEvent()` prevents the same event from firing twice within 
 ## Event Flow (Service Order Funnel)
 
 ```
-so_claimed → so_arrived → so_in_progress → so_completed
+so_viewed → so_claimed → so_arrived → so_in_progress → so_completed
                                          → so_rescheduled
                                          → so_customer_not_home
                                          → so_cancelled
