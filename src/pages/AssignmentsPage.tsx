@@ -641,6 +641,20 @@ const AssignmentsPage = () => {
     }
   };
 
+  const openApplianceDrawer = () => {
+    if (activeJobDetails) {
+      const piu = activeJobDetails.job?.productInfoUpdate || {};
+      setApplianceForm(prev => ({
+        ...prev,
+        brand: piu.brand || activeJobDetails.job?.manufacturerBrand || activeJobDetails.applianceBrandname || '',
+        model: piu.modelNumber || activeJobDetails.job?.applianceModel || '',
+        serial: piu.serialNumber || activeJobDetails.job?.applianceSerial || '',
+        issue: piu.issue || activeJobDetails.job?.serviceDescription || '',
+      }));
+    }
+    setShowApplianceDrawer(true);
+  };
+
   const closeApplianceDrawer = () => {
     setShowApplianceDrawer(false);
   };
@@ -1710,11 +1724,11 @@ const AssignmentsPage = () => {
 
                   {activeJobDetails._type === 'sears' && !['in_progress', 'completed'].includes(activeJobDetails.status) && (
                     <button
-                      onClick={() => { setShowApplianceDrawer(true); ga4ModalOpened('scan_edit_appliance'); }}
+                      onClick={() => { openApplianceDrawer(); ga4ModalOpened('scan_edit_appliance'); }}
                       className="flex items-center gap-2 px-4 py-2 border border-blue-500/40 hover:border-blue-400 text-blue-400 hover:bg-blue-500/10 bg-transparent text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] duration-200"
                     >
                       <PlayCircle className="h-4 w-4" />
-                      <span>Scan & Edit Appliance</span>
+                      <span>Edit Appliance</span>
                     </button>
                   )}
 
@@ -1958,11 +1972,11 @@ const AssignmentsPage = () => {
                       </div>
                       {activeJobDetails._type === 'sears' && !['in_progress', 'completed'].includes(activeJobDetails.status) && (
                         <button
-                          onClick={() => setShowApplianceDrawer(true)}
+                          onClick={() => openApplianceDrawer()}
                           className="text-[11px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1 transition-colors"
                         >
                           <Plus className="h-3.5 w-3.5" />
-                          <span>Scan/Edit Spec</span>
+                          <span>Edit Spec</span>
                         </button>
                       )}
                     </div>
