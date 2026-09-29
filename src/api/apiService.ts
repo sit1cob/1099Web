@@ -7,7 +7,7 @@ import { AssignmentsListResponse } from '../types/assignments.types';
 import { AddPartToAssignmentRequest, PartResponse, AddedPartResponse, DeletePartResponse } from '../types/parts.types';
 import { RescheduleRequest, RescheduleResponse } from '../types/reschedule.types';
 import { VendorProfileResponse } from '../types/vendor.types';
-import { API_CONFIG, V2_API_CONFIG, APP_CONFIG } from '../utils/config';
+import { API_CONFIG, V2_API_CONFIG, APP_CONFIG, STRIPE_CONFIG } from '../utils/config';
 import { trackApiError } from '../utils/clarityTracking';
 import { ga4ApiError } from '../utils/ga4DataLayer';
 
@@ -946,6 +946,93 @@ class ApiService {
         message: error?.response?.data?.message || error?.message || 'Failed to load earnings summary',
         data: null,
       };
+    }
+  }
+
+  async getEadShipping(payload: {
+    stateCode: string;
+    zipCode: string;
+    totalAmount: number;
+    shippingMode: 'Normal' | 'Priority' | 'Expedite';
+    partDetails: Array<{ div: string; pls: string; partNumber: string; quantity: number }>;
+  }): Promise<any> {
+    try {
+      const response = await this.api.post('/api/vendors/me/parts/ead-shipping', payload);
+      return response.data;
+    } catch (error: any) {
+      console.error('getEadShipping failed:', error?.response?.status, error?.message);
+      return { success: false, data: null };
+    }
+  }
+
+  async createPaymentIntent(
+    amount: number,
+    items: Array<{ partNo: string; quantity: number; price: number }>,
+    metadata?: Record<string, any>
+  ): Promise<any> {
+    try {
+      const formData = new URLSearchParams();
+      formData.append('amount', String(amount));
+      formData.append('currency', 'usd');
+      formData.append('automatic_payment_methods[enabled]', 'true');
+      const res = await fetch('https://api.stripe.com/v1/payment_intents', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${STRIPE_CONFIG.SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message || `Stripe error ${res.status}`);
+      return { success: true, data: { clientSecret: data.client_secret, paymentIntentId: data.id } };
+    } catch (error: any) {
+      console.error('createPaymentIntent failed:', error?.message);
+      return { success: false, data: null };
+    }
+  }
+
+  async updateVendorProfileForOrder(payload: Record<string, any>): Promise<any> {
+    try {
+      const response = await this.api.patch('/api/vendors/me/profile', payload);
+      return response.data;
+    } catch (error: any) {
+      console.error('updateVendorProfileForOrder failed:', error?.response?.status, error?.message);
+      return { success: false, data: null };
+    }
+  }
+
+  async createDirectPartOrder(payload: {
+    npjCustomerNo: string;
+    firstName: string;
+    lastName: string;
+    emailAddress: string;
+    dayPhoneNo: string;
+    eveningPhoneNo: string;
+    addressLine1: string;
+    city: string;
+    stateCode: string;
+    zipCode: string;
+    countryCode: string;
+    paymentAmt: number;
+    stripePaymentIntentId: string;
+    shippingMode: 'Normal' | 'Priority' | 'Expedite';
+    partDetails: Array<{
+      partAmount: number;
+      quantity: number;
+      pls: string;
+      productGroupId: string;
+      itemId: string;
+      partNo: string;
+      itemDescription: string;
+    }>;
+  }): Promise<any> {
+    try {
+      const response = await this.api.post('/api/vendors/me/parts/direct-order', payload);
+      return response.data;
+    } catch (error: any) {
+      console.error('createDirectPartOrder failed:', error?.response?.status, error?.message);
+      return { success: false, data: null };
     }
   }
 }

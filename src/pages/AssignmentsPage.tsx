@@ -14,6 +14,7 @@ import {
   ChevronLeft, Truck, MessageSquare, Pencil
 } from 'lucide-react';
 import AppliancePhotoUploader, { AppliancePhotoUploaderHandle } from '../components/AppliancePhotoUploader';
+import StripeCheckoutModal from '../components/StripeCheckoutModal';
 
 
 import { RESCHEDULE_REASONS } from '../types/reschedule.types';
@@ -192,6 +193,7 @@ const AssignmentsPage = () => {
   });
   const [cart, setCart] = useState<any[]>([]);
   const [partsError, setPartsError] = useState<string | null>(null);
+  const [showStripeCheckout, setShowStripeCheckout] = useState(false);
 
   const [completeForm, setCompleteForm] = useState({
     completionType: 'Completed',
@@ -805,16 +807,21 @@ const AssignmentsPage = () => {
       } else {
         res = await ApiService.searchPartsByPartNo(partsSearch.query);
         const rawItems = res?.data?.items || (Array.isArray(res?.data) ? res.data : []);
-        const parts = rawItems.map((item: any) => ({
-          itemId: item.itemId || item.partNo,
-          partNo: item.partNo,
-          name: item.itemDescription || item.name || '',
-          description: item.productGroupName || item.description || '',
-          price: parseFloat(item.itemSellingPrice) || item.price || 0,
-          available: item.itemAvailabilityStatus ? item.itemAvailabilityStatus === 'PIA' : item.available !== false,
-          productGroupId: item.productGroupId || '',
-          imageUrl: item.itemImageUrl || '',
-        }));
+        const parts = rawItems.map((item: any) => {
+          const sellPrice = item.itemSellingPrice || item.sellPrice || '';
+          const price = parseFloat(sellPrice || item.unitPrice || item.salePrice || item.price || '0') || 0;
+          return {
+            itemId: item.itemId || item.partNo,
+            partNo: item.partNo,
+            name: item.itemDescription || item.name || '',
+            description: item.productGroupName || item.description || '',
+            price,
+            sellPrice,
+            available: item.itemAvailabilityStatus ? item.itemAvailabilityStatus === 'PIA' : item.available !== false,
+            productGroupId: item.productGroupId || '',
+            imageUrl: item.itemImageUrl || '',
+          };
+        });
         setPartsSearch(prev => ({ ...prev, modelResults: [], selectedModel: null, results: parts, searching: false }));
       }
     } catch (e) {
@@ -830,16 +837,22 @@ const AssignmentsPage = () => {
       const partsRes = await ApiService.getModelParts(assignmentNumId, model.modelId);
       const rawItems = partsRes?.data?.items || partsRes?.data?.parts || (Array.isArray(partsRes?.data) ? partsRes.data : []);
       // Map API fields to UI fields
-      const parts = rawItems.map((item: any) => ({
-        itemId: item.itemId,
-        partNo: item.partNo,
-        name: item.itemDescription || item.name || '',
-        description: item.productGroupName || item.description || '',
-        price: parseFloat(item.itemSellingPrice) || item.price || 0,
-        available: item.itemAvailabilityStatus === 'PIA',
-        productGroupId: item.productGroupId || '',
-        imageUrl: item.itemImageUrl || ''
-      }));
+      const parts = rawItems.map((item: any) => {
+        const sellPrice = item.itemSellingPrice || item.sellPrice || '';
+        const price = parseFloat(sellPrice || item.unitPrice || item.salePrice || item.price || '0') || 0;
+        return {
+          itemId: item.itemId,
+          partNo: item.partNo,
+          productGroupId: item.productGroupId || '',
+          productGroupName: item.productGroupName || '',
+          name: item.itemDescription || item.name || '',
+          description: item.productGroupName || item.description || '',
+          imageUrl: item.itemImageUrl || '',
+          sellPrice,   // ← from itemSellingPrice (matches Android TruckPartsListScreen)
+          price,
+          available: item.itemAvailabilityStatus === 'PIA',
+        };
+      });
       setPartsSearch(prev => ({ ...prev, results: parts, searching: false }));
     } catch (e) {
       console.error('getModelParts failed:', e);
@@ -854,7 +867,8 @@ const AssignmentsPage = () => {
       if (existing) {
         return prev.map(i => (i.itemId || i.partNo) === cartKey ? { ...i, quantity: i.quantity + 1 } : i);
       }
-      return [...prev, { ...part, quantity: 1 }];
+      const resolvedPrice = parseFloat(part.sellPrice || part.price || part.itemSellingPrice || '0');
+      return [...prev, { ...part, price: resolvedPrice, sellPrice: String(resolvedPrice), quantity: 1 }];
     });
     setAvailabilityChecked(false);
     setPartsAvailability({});
@@ -915,6 +929,7 @@ const AssignmentsPage = () => {
       console.log('Availability API response:', JSON.stringify(res));
       const availableParts = Array.isArray(res?.data?.availableParts) ? res.data.availableParts : Array.isArray(res?.data?.parts) ? res.data.parts : [];
       const availablePartNos = new Set(availableParts.map((p: any) => p.partNo || p.itemId));
+
       const availMap: Record<string, boolean> = {};
       cart.forEach(item => {
         availMap[item.partNo] = availablePartNos.has(item.partNo);
@@ -3015,12 +3030,10 @@ const AssignmentsPage = () => {
                   </button>
                   {availabilityChecked && !partsError && cart.length > 0 && (
                     <button
-                      onClick={handleAddPartsToJob}
-                      disabled={confirmProcessing}
-                      className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      onClick={() => setShowStripeCheckout(true)}
+                      className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full flex items-center justify-center gap-2"
                     >
-                      {confirmProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      {confirmProcessing ? 'Adding Parts...' : 'Add Parts to Order'}
+                      Proceed to Checkout
                     </button>
                   )}
                   {partsError && cart.length > 0 && availabilityChecked && cart.some(item => partsAvailability[item.partNo] === true) && (
@@ -3051,6 +3064,29 @@ const AssignmentsPage = () => {
 
           </div>
         </div>
+      )}
+
+      {/* Stripe Checkout Modal */}
+      {showStripeCheckout && (
+        <StripeCheckoutModal
+          cart={cart}
+          assignmentId={String(selectedId || '')}
+          onClose={() => setShowStripeCheckout(false)}
+          onSuccess={() => {
+            setShowStripeCheckout(false);
+            setShowPartsModal(false);
+            setCart([]);
+            setPartsError(null);
+            setAvailabilityChecked(false);
+            setPartsAvailability({});
+            setSuccessMsg({
+              title: 'Parts Order Placed',
+              desc: 'Your parts order was placed successfully. Tracking info will appear in Parts & Inventory once shipped.',
+              type: 'complete'
+            });
+            loadData();
+          }}
+        />
       )}
 
       {/* Shipping Address Confirmation Modal */}
