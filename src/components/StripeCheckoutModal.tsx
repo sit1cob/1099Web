@@ -78,7 +78,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ total, onSuccess, onError, su
 
   return (
     <div className="space-y-5">
-      <PaymentElement options={{ layout: 'tabs' }} />
+      <PaymentElement options={{ layout: 'tabs', defaultValues: { billingDetails: { address: { country: 'US' } } } }} />
       <button
         type="button"
         onClick={handlePay}
