@@ -78,16 +78,21 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
       } else {
         const res = await ApiService.searchPartsByPartNo(partsSearch.query);
         const rawItems = res?.data?.items || (Array.isArray(res?.data) ? res.data : []);
-        const parts = rawItems.map((item: any) => ({
-          itemId: item.itemId || item.partNo,
-          partNo: item.partNo,
-          name: item.itemDescription || item.name || '',
-          description: item.productGroupName || item.description || '',
-          price: parseFloat(item.itemSellingPrice) || item.price || 0,
-          available: item.itemAvailabilityStatus ? item.itemAvailabilityStatus === 'PIA' : item.available !== false,
-          productGroupId: item.productGroupId || '',
-          imageUrl: item.itemImageUrl || '',
-        }));
+        const parts = rawItems.map((item: any) => {
+          const sellPrice = item.itemSellingPrice || item.sellPrice || '';
+          const price = parseFloat(sellPrice || item.unitPrice || item.price || '0') || 0;
+          return {
+            itemId: item.itemId || item.partNo,
+            partNo: item.partNo,
+            name: item.itemDescription || item.name || '',
+            description: item.productGroupName || item.description || '',
+            price,
+            sellPrice,
+            available: item.itemAvailabilityStatus ? item.itemAvailabilityStatus === 'PIA' : item.available !== false,
+            productGroupId: item.productGroupId || '',
+            imageUrl: item.itemImageUrl || '',
+          };
+        });
         setPartsSearch(prev => ({ ...prev, modelResults: [], selectedModel: null, results: parts, searching: false }));
       }
     } catch (e) {
@@ -101,16 +106,21 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
     try {
       const partsRes = await ApiService.getModelParts(assignmentNumId, model.modelId);
       const rawItems = partsRes?.data?.items || partsRes?.data?.parts || (Array.isArray(partsRes?.data) ? partsRes.data : []);
-      const parts = rawItems.map((item: any) => ({
-        itemId: item.itemId,
-        partNo: item.partNo,
-        name: item.itemDescription || item.name || '',
-        description: item.productGroupName || item.description || '',
-        price: parseFloat(item.itemSellingPrice) || item.price || 0,
-        available: item.itemAvailabilityStatus === 'PIA',
-        productGroupId: item.productGroupId || '',
-        imageUrl: item.itemImageUrl || '',
-      }));
+      const parts = rawItems.map((item: any) => {
+        const sellPrice = item.itemSellingPrice || item.sellPrice || '';
+        const price = parseFloat(sellPrice || item.unitPrice || item.price || '0') || 0;
+        return {
+          itemId: item.itemId,
+          partNo: item.partNo,
+          name: item.itemDescription || item.name || '',
+          description: item.productGroupName || item.description || '',
+          price,
+          sellPrice,
+          available: item.itemAvailabilityStatus === 'PIA',
+          productGroupId: item.productGroupId || '',
+          imageUrl: item.itemImageUrl || '',
+        };
+      });
       setPartsSearch(prev => ({ ...prev, results: parts, searching: false }));
     } catch (e) {
       console.error('getModelParts failed:', e);
@@ -125,7 +135,8 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
       if (existing) {
         return prev.map(i => (i.itemId || i.partNo) === cartKey ? { ...i, quantity: i.quantity + 1 } : i);
       }
-      return [...prev, { ...part, quantity: 1 }];
+      const resolvedPrice = parseFloat(part.sellPrice || String(part.price) || '0') || 0;
+      return [...prev, { ...part, price: resolvedPrice, sellPrice: part.sellPrice || String(resolvedPrice), quantity: 1 }];
     });
     setAvailabilityChecked(false);
     setPartsAvailability({});
@@ -480,6 +491,13 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
           ga4PartsOrdered(String(selectedJob?.id || ''), cart.length, cart.map(item => ({ partNo: item.partNo, name: item.name })));
           onOrdered();
           onClose();
+        }}
+        onOrderMore={() => {
+          setShowStripeCheckout(false);
+          setCart([]);
+          setAvailabilityChecked(false);
+          setPartsAvailability({});
+          setPartsError(null);
         }}
       />
     )}

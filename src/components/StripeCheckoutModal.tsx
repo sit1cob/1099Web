@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { X, CheckCircle, Loader2, Package, MapPin, AlertCircle, CreditCard, Truck, Clock, Zap } from 'lucide-react';
+import { X, CheckCircle, Loader2, Package, MapPin, AlertCircle, CreditCard, Truck, Clock, Zap, ExternalLink, ShoppingCart, Settings } from 'lucide-react';
 import ApiService from '../api/apiService';
 import { STRIPE_CONFIG } from '../utils/config';
 
@@ -27,6 +28,7 @@ export interface StripeCheckoutModalProps {
   assignmentId: string;
   onClose: () => void;
   onSuccess: () => void;
+  onOrderMore?: () => void;
 }
 
 const SHIPPING_OPTIONS: { mode: ShippingMode; label: string; days: string; Icon: React.FC<any> }[] = [
@@ -94,7 +96,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ total, onSuccess, onError, su
 };
 
 // ── Main modal ────────────────────────────────────────────────────
-const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({ cart, assignmentId, onClose, onSuccess }) => {
+const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({ cart, assignmentId, onClose, onSuccess, onOrderMore }) => {
+  const navigate = useNavigate();
   const [step,            setStep]            = useState<Step>('summary');
   const [shippingMode,    setShippingMode]    = useState<ShippingMode>('Priority');
   const [shipping,        setShipping]        = useState(DEFAULT_SHIPPING);
@@ -249,16 +252,28 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({ cart, assignm
         partDetails,
       });
 
-      const eadLabel = ead
-        || (shippingMode === 'Normal' ? '5–7 days' : shippingMode === 'Priority' ? '2–3 days' : '1–2 days');
+      const shippingDays = shippingMode === 'Normal' ? '5–7 days' : shippingMode === 'Priority' ? '2–3 days' : '1–2 days';
+      const shippingModeLabel = shippingMode === 'Normal' ? 'Standard' : shippingMode === 'Priority' ? 'Priority' : 'Expedite';
+
+      const rawEadDate = orderRes?.data?.eadDate || ead || null;
+      const formatEad = (s: string | null) => {
+        if (!s) {
+          const d = new Date(); d.setDate(d.getDate() + 3);
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? s : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      };
 
       setSuccessData({
-        orderId:  orderRes?.data?.orderId || orderRes?.data?.orderNumber || `ORD-${Date.now()}`,
-        date:     new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        ead:      eadLabel,
-        shippingMode,
-        address:  [vendorProfile?.addressLine1, vendorProfile?.city,
-                   `${vendorProfile?.state} ${vendorProfile?.zipCode}`].filter(Boolean).join(', '),
+        orderId:      orderRes?.data?.orderRefNo || orderRes?.data?.partOrderNo || orderRes?.data?.orderId || orderRes?.data?.orderNumber || `ORD-${Date.now()}`,
+        date:         new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        deliveryEst:  formatEad(rawEadDate),
+        shippingDays,
+        shippingModeLabel,
+        address:      [vendorProfile?.addressLine1, vendorProfile?.city,
+                       `${vendorProfile?.state} ${vendorProfile?.zipCode}`].filter(Boolean).join(', '),
+        city:         vendorProfile?.city || '',
       });
       setStep('success');
     } catch (e: any) {
@@ -452,84 +467,121 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({ cart, assignm
 
           {/* ── STEP: Success ─────────────────────────────────── */}
           {step === 'success' && successData && (
-            <div className="p-5 space-y-5">
+            <div className="flex flex-col">
               {/* Green success header */}
-              <div className="bg-emerald-600 rounded-2xl p-6 text-center">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle className="h-7 w-7 text-white" />
+              <div className="bg-emerald-600 px-6 py-8 text-center shrink-0">
+                <div className="inline-flex items-center gap-1.5 bg-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full mb-4">
+                  <CheckCircle className="h-3 w-3" />
+                  Payment Confirmed
                 </div>
-                <h2 className="text-white font-bold text-base">Order Placed Successfully</h2>
+                <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="h-8 w-8 text-white" />
+                </div>
+                <h2 className="text-white font-bold text-xl">Order Placed Successfully</h2>
+                {successData.city && (
+                  <p className="text-emerald-200 text-xs mt-1">Ships to {successData.city}</p>
+                )}
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Address row */}
                 {successData.address && (
-                  <p className="text-emerald-200 text-[11px] mt-1">Ships to {successData.address}</p>
-                )}
-              </div>
-
-              {/* Order details */}
-              <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-2.5">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Order Details</p>
-                {[
-                  ['Order ID', successData.orderId],
-                  ['Date',     successData.date],
-                  ['Shipping', `${successData.shippingMode} · ${successData.ead}`],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex justify-between text-xs">
-                    <span className="text-gray-500">{label}</span>
-                    <span className="font-semibold text-gray-900">{value}</span>
+                  <div className="flex items-center gap-2.5 bg-white border border-gray-100 rounded-xl px-4 py-3 shadow-sm">
+                    <MapPin className="h-4 w-4 text-gray-500 shrink-0" />
+                    <span className="text-xs text-gray-700">{successData.address}</span>
                   </div>
-                ))}
-              </div>
+                )}
 
-              {/* Ordered parts */}
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">Ordered Parts</p>
-                <div className="space-y-2">
-                  {cart.map(item => (
-                    <div key={item.itemId || item.partNo} className="flex justify-between items-center text-xs py-2 border-b border-gray-100">
-                      <div>
-                        <p className="font-semibold text-gray-900">{item.name}</p>
-                        <p className="text-gray-400">Qty {item.quantity}</p>
+                {/* Order details */}
+                <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Order Details</p>
+                  <div className="space-y-2.5">
+                    {[
+                      ['Order ID',     successData.orderId],
+                      ['Date',         successData.date],
+                      ['Shipping',     `${successData.shippingModeLabel} · ${successData.shippingDays}`],
+                      ...(successData.deliveryEst ? [['Delivery Est.', successData.deliveryEst]] : []),
+                    ].map(([label, value]) => (
+                      <div key={label} className="flex justify-between text-xs">
+                        <span className="text-gray-500">{label}</span>
+                        <span className="font-semibold text-gray-900">{value}</span>
                       </div>
-                      <span className="font-bold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Price summary */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between text-xs text-gray-500"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-                <div className="flex justify-between text-xs text-gray-500"><span>Shipping</span><span>${shipping.toFixed(2)}</span></div>
-                {shippingTax > 0 && (
-                  <div className="flex justify-between text-xs text-gray-500"><span>Shipping Tax</span><span>${shippingTax.toFixed(2)}</span></div>
-                )}
-                <div className="flex justify-between text-xs text-gray-500"><span>Tax</span><span>${tax.toFixed(2)}</span></div>
-                <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
-                  <span>Total Paid</span>
-                  <span className="text-blue-600">${total.toFixed(2)}</span>
-                </div>
-              </div>
-
-              {/* What happens next */}
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
-                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">What Happens Next</p>
-                {[
-                  'Your order is being processed by our vendor network.',
-                  'Tracking info will appear in Parts & Inventory once shipped.',
-                ].map(text => (
-                  <div key={text} className="flex items-start gap-2 text-xs text-blue-600">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-                    <span>{text}</span>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => { onSuccess(); onClose(); }}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-colors"
-              >
-                Done
-              </button>
+                {/* Ordered parts + price summary */}
+                <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Ordered Parts</p>
+                  <div className="space-y-3 mb-4">
+                    {cart.map(item => (
+                      <div key={item.itemId || item.partNo} className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover bg-gray-100 shrink-0" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                              <Package className="h-4 w-4 text-blue-500" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold text-xs text-gray-900">{item.name}</p>
+                            <p className="text-gray-400 text-[10px]">Qty {item.quantity}</p>
+                          </div>
+                        </div>
+                        <span className="font-bold text-xs text-gray-900 shrink-0">${(parseFloat(item.sellPrice ?? String(item.price)) * item.quantity).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-gray-200 pt-3 space-y-1.5">
+                    <div className="flex justify-between text-xs text-gray-500"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-xs text-gray-500"><span>Shipping</span><span>${shipping.toFixed(2)}</span></div>
+                    {shippingTax > 0 && (
+                      <div className="flex justify-between text-xs text-gray-500"><span>Shipping Tax</span><span>${shippingTax.toFixed(2)}</span></div>
+                    )}
+                    <div className="flex justify-between text-xs text-gray-500"><span>Tax</span><span>${tax.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
+                      <span>Total Paid</span>
+                      <span className="text-blue-600">${total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* What happens next */}
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                  <p className="text-xs font-bold text-blue-700 mb-3">What happens next</p>
+                  <div className="space-y-3">
+                    {[
+                      { Icon: Settings, text: 'Your order is being processed by our vendor network.' },
+                      { Icon: Truck,    text: 'Tracking info will appear in Parts & Inventory once shipped.' },
+                      { Icon: MapPin,   text: `Parts delivered to ${successData.address}.` },
+                    ].map(({ Icon, text }) => (
+                      <div key={text} className="flex items-start gap-3 text-xs text-blue-700">
+                        <Icon className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                        <span>{text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <button
+                  type="button"
+                  onClick={() => { onSuccess(); onClose(); navigate('/parts'); }}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View in Parts &amp; Inventory
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOrderMore ? onOrderMore() : onClose()}
+                  className="w-full py-3 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Order More Parts
+                </button>
+              </div>
             </div>
           )}
         </div>
