@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import ApiService from '../api/apiService';
+import StripeCheckoutModal from './StripeCheckoutModal';
 import { trackPartsOrdered } from '../utils/clarityTracking';
 import { ga4PartsOrdered } from '../utils/ga4DataLayer';
 import {
@@ -32,7 +33,7 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [partsAvailability, setPartsAvailability] = useState<Record<string, boolean>>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [showStripeCheckout, setShowStripeCheckout] = useState(false);
 
   // Silently attach the order to the tech's current active job — the backend
   // requires an assignment id for model search, availability checks, and order
@@ -175,45 +176,10 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
     }
   };
 
-  const handleSubmitOrder = async () => {
-    if (!selectedJob || cart.length === 0) return;
-    setSubmitting(true);
-    try {
-      const items = cart.map(item => ({
-        itemId: item.itemId || item.partNo,
-        partNo: item.partNo,
-        quantity: item.quantity,
-        productGroupId: item.productGroupId || '',
-        productGroupName: item.description || '',
-        itemDescription: item.name || '',
-        itemImageUrl: item.imageUrl || '',
-        partType: 'local',
-      }));
-
-      const ordersRes = await ApiService.getOrders(assignmentNumId);
-      const existingOrders: any[] = ordersRes?.data || [];
-      if (existingOrders.length > 0) {
-        const orderId = existingOrders[0].orderId || existingOrders[0].id;
-        await ApiService.updateOrder(assignmentNumId, orderId, items);
-      } else {
-        await ApiService.createOrder(assignmentNumId, items);
-      }
-
-      trackPartsOrdered(String(selectedJob.id));
-      ga4PartsOrdered(String(selectedJob.id), cart.length, cart.map(item => ({ partNo: item.partNo, name: item.name })));
-      onOrdered();
-      onClose();
-    } catch (e) {
-      console.error('Failed to submit parts order:', e);
-      setPartsError('Failed to place the order. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-4xl h-[90vh] md:h-[550px] shadow-2xl flex flex-col md:flex-row overflow-hidden text-gray-700">
 
@@ -478,12 +444,10 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
                 </button>
                 {availabilityChecked && !partsError && cart.length > 0 && (
                   <button
-                    onClick={handleSubmitOrder}
-                    disabled={submitting}
-                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    onClick={() => setShowStripeCheckout(true)}
+                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full flex items-center justify-center gap-2"
                   >
-                    {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    {submitting ? 'Placing Order...' : 'Place Order'}
+                    Proceed to Checkout
                   </button>
                 )}
               </div>
@@ -499,6 +463,27 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
         )}
       </div>
     </div>
+
+    {showStripeCheckout && (
+      <StripeCheckoutModal
+        cart={cart.map(item => ({
+          ...item,
+          price: parseFloat(item.sellPrice || item.price || '0') || 0,
+          sellPrice: item.sellPrice || String(item.price || '0'),
+          productGroupId: item.productGroupId || '',
+        }))}
+        assignmentId={String(selectedJob?.id || '')}
+        onClose={() => setShowStripeCheckout(false)}
+        onSuccess={() => {
+          setShowStripeCheckout(false);
+          trackPartsOrdered(String(selectedJob?.id || ''));
+          ga4PartsOrdered(String(selectedJob?.id || ''), cart.length, cart.map(item => ({ partNo: item.partNo, name: item.name })));
+          onOrdered();
+          onClose();
+        }}
+      />
+    )}
+    </>
   );
 };
 

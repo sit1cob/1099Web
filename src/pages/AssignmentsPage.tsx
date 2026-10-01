@@ -14,7 +14,6 @@ import {
   ChevronLeft, Truck, MessageSquare, Pencil
 } from 'lucide-react';
 import AppliancePhotoUploader, { AppliancePhotoUploaderHandle } from '../components/AppliancePhotoUploader';
-import StripeCheckoutModal from '../components/StripeCheckoutModal';
 
 
 import { RESCHEDULE_REASONS } from '../types/reschedule.types';
@@ -193,8 +192,6 @@ const AssignmentsPage = () => {
   });
   const [cart, setCart] = useState<any[]>([]);
   const [partsError, setPartsError] = useState<string | null>(null);
-  const [showStripeCheckout, setShowStripeCheckout] = useState(false);
-
   const [completeForm, setCompleteForm] = useState({
     completionType: 'Completed',
     repairType: 'Service Attempt',
@@ -3030,10 +3027,12 @@ const AssignmentsPage = () => {
                   </button>
                   {availabilityChecked && !partsError && cart.length > 0 && (
                     <button
-                      onClick={() => setShowStripeCheckout(true)}
-                      className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full flex items-center justify-center gap-2"
+                      onClick={handleConfirmAndProceed}
+                      disabled={confirmProcessing}
+                      className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full flex items-center justify-center gap-2 disabled:opacity-70"
                     >
-                      Proceed to Checkout
+                      {confirmProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      {confirmProcessing ? 'Processing...' : 'Add Parts to Order'}
                     </button>
                   )}
                   {partsError && cart.length > 0 && availabilityChecked && cart.some(item => partsAvailability[item.partNo] === true) && (
@@ -3064,29 +3063,6 @@ const AssignmentsPage = () => {
 
           </div>
         </div>
-      )}
-
-      {/* Stripe Checkout Modal */}
-      {showStripeCheckout && (
-        <StripeCheckoutModal
-          cart={cart}
-          assignmentId={String(selectedId || '')}
-          onClose={() => setShowStripeCheckout(false)}
-          onSuccess={() => {
-            setShowStripeCheckout(false);
-            setShowPartsModal(false);
-            setCart([]);
-            setPartsError(null);
-            setAvailabilityChecked(false);
-            setPartsAvailability({});
-            setSuccessMsg({
-              title: 'Parts Order Placed',
-              desc: 'Your parts order was placed successfully. Tracking info will appear in Parts & Inventory once shipped.',
-              type: 'complete'
-            });
-            loadData();
-          }}
-        />
       )}
 
       {/* Shipping Address Confirmation Modal */}
