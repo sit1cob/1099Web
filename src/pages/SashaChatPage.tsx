@@ -1,39 +1,50 @@
-import { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ApiService from '../api/apiService';
-import { Bot, RefreshCw, ExternalLink, Loader2 } from 'lucide-react';
+import { Bot, RefreshCw, ExternalLink, Loader2, AlertTriangle } from 'lucide-react';
 import { ga4ChatAIOpened, ga4ChatAIRefreshed, ga4ChatAIOpenedExternal } from '../utils/ga4DataLayer';
 
 const SashaChatPage = ({ active = true }: { active?: boolean }) => {
-  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const baseChatUrl = 'https://1099sasha-qa.searskairos.ai/';
-  const token = ApiService.getToken() || '';
-  const username = user?.username || 'test_vendor';
-
-  // Construct URL with username, source, and token
-  const iframeUrl = `${baseChatUrl}?username=${encodeURIComponent(username)}&source=web_app&token=${encodeURIComponent(token)}`;
-
-  // Set shared authorization cookies on mount and reload key change
-  useEffect(() => {
-    if (token) {
-      try {
-        const isProdDomain = window.location.hostname.endsWith('searskairos.ai');
-        const domainSuffix = isProdDomain ? '; domain=.searskairos.ai' : '';
-        const cookieStr = `; path=/${domainSuffix}; max-age=86400; SameSite=Lax; Secure`;
-        
-        document.cookie = `accessToken=${token}${cookieStr}`;
-        document.cookie = `access_token=${token}${cookieStr}`;
-        document.cookie = `token=${token}${cookieStr}`;
-        document.cookie = `refreshToken=${token}${cookieStr}`;
-      } catch (e) {
-        console.warn('SashaChatPage: Failed to set shared cookies:', e);
-      }
+  // The iframeUrl (and its embedded one-time code) is minted by our backend via
+  // POST /api/techmate/embed-session. The App1099 login token never enters the
+  // browser or this iframe URL - only this short-lived, one-time launch URL does.
+  const fetchEmbedSession = useCallback(async (): Promise<string | null> => {
+    const response = await ApiService.createTechmateEmbedSession();
+    if (!response.success || !response.data?.iframeUrl) {
+      setError(response.message || 'Unable to start chat assistant session');
+      return null;
     }
-  }, [token, reloadKey]);
+    setError(null);
+    return response.data.iframeUrl;
+  }, []);
+
+  // Fetch a fresh session whenever the page mounts or a reload is requested
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    fetchEmbedSession().then((url) => {
+      if (!cancelled) {
+        setIframeUrl(url);
+        if (!url) setIsLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey, fetchEmbedSession]);
+
+  const iframeOrigin = (() => {
+    try {
+      return iframeUrl ? new URL(iframeUrl).origin : '';
+    } catch {
+      return '';
+    }
+  })();
 
   // Handle visibility change and unmount to silence global SpeechSynthesis
   useEffect(() => {
@@ -68,23 +79,23 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
         console.warn('SashaChatPage: SpeechSynthesis cancel error:', e);
       }
 
-      if (iframeRef.current?.contentWindow) {
+      if (iframeRef.current?.contentWindow && iframeOrigin) {
         try {
-          iframeRef.current.contentWindow.postMessage({ type: 'visibility', visible: false }, baseChatUrl);
+          iframeRef.current.contentWindow.postMessage({ type: 'visibility', visible: false }, iframeOrigin);
         } catch (err) {
           console.warn('SashaChatPage: Failed to post deactivation message:', err);
         }
       }
     } else {
-      if (iframeRef.current?.contentWindow) {
+      if (iframeRef.current?.contentWindow && iframeOrigin) {
         try {
-          iframeRef.current.contentWindow.postMessage({ type: 'visibility', visible: true }, baseChatUrl);
+          iframeRef.current.contentWindow.postMessage({ type: 'visibility', visible: true }, iframeOrigin);
         } catch (err) {
           console.warn('SashaChatPage: Failed to post activation message:', err);
         }
       }
     }
-  }, [active]);
+  }, [active, iframeOrigin]);
 
   // Handle iframe onload: hide loader and dispatch postMessage authentication payload
   const handleIframeLoad = () => {
@@ -256,22 +267,6 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
     } catch (e) {
       console.warn('SashaChatPage: Cross-origin sandbox restricts direct script injection into chatbot iframe. Muting fallback operates through WebView wrapper.');
     }
-
-    if (token && iframeRef.current?.contentWindow) {
-      try {
-        const authPayload = {
-          type: 'auth',
-          token: token,
-          accessToken: token,
-          access_token: token,
-        };
-        // Post objects and stringified versions to accommodate different potential frame message parsers
-        iframeRef.current.contentWindow.postMessage(authPayload, baseChatUrl);
-        iframeRef.current.contentWindow.postMessage(JSON.stringify(authPayload), baseChatUrl);
-      } catch (err) {
-        console.warn('SashaChatPage: Failed to dispatch postMessage auth:', err);
-      }
-    }
   };
 
   const handleRefresh = () => {
@@ -280,9 +275,13 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
     setReloadKey(prev => prev + 1);
   };
 
-  const handleOpenExternal = () => {
+  const handleOpenExternal = async () => {
     ga4ChatAIOpenedExternal();
-    window.open(iframeUrl, '_blank', 'noopener,noreferrer');
+    // The current iframeUrl's one-time code may already be consumed - request a fresh one
+    const freshUrl = await fetchEmbedSession();
+    if (freshUrl) {
+      window.open(freshUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -327,7 +326,7 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
 
       {/* Main IFrame Viewport */}
       <div className="flex-grow relative w-full h-full overflow-hidden bg-white">
-        {isLoading && (
+        {isLoading && !error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-20 transition-opacity duration-300">
             <div className="relative flex items-center justify-center mb-4">
               <div className="w-16 h-16 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-400 animate-pulse">
@@ -343,15 +342,31 @@ const SashaChatPage = ({ active = true }: { active?: boolean }) => {
           </div>
         )}
 
-        <iframe
-          key={reloadKey}
-          ref={iframeRef}
-          src={iframeUrl}
-          onLoad={handleIframeLoad}
-          className="w-full h-full border-0 bg-transparent"
-          allow="microphone; camera; clipboard-write"
-          title="Kris AI Assistant Console"
-        />
+        {error && !isLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-20">
+            <AlertTriangle className="h-8 w-8 text-amber-500 mb-3" />
+            <p className="text-sm font-semibold text-gray-700">Unable to connect to Kris Assistant</p>
+            <p className="text-xs text-gray-400 mt-1 max-w-xs text-center">{error}</p>
+            <button
+              onClick={handleRefresh}
+              className="mt-4 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {iframeUrl && (
+          <iframe
+            key={reloadKey}
+            ref={iframeRef}
+            src={iframeUrl}
+            onLoad={handleIframeLoad}
+            className="w-full h-full border-0 bg-transparent"
+            allow="microphone; camera; clipboard-write"
+            title="Kris AI Assistant Console"
+          />
+        )}
       </div>
     </div>
   );

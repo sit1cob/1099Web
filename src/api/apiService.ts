@@ -228,6 +228,17 @@ class ApiService {
     }
   }
 
+  // ── Techmate (AI chat assistant) ──
+  async createTechmateEmbedSession(): Promise<{ success: boolean; data?: { iframeUrl: string; expiresAt: string }; message?: string }> {
+    try {
+      const response = await this.api.post('/api/techmate/embed-session');
+      return response.data;
+    } catch (error: any) {
+      console.error('createTechmateEmbedSession failed:', error?.response?.status, error?.message);
+      return { success: false, message: error?.response?.data?.message || 'Failed to start chat assistant session' };
+    }
+  }
+
   async updateVendorAddress(payload: { addressLine1: string; city: string; state: string; countryCode: string; zipCode: string }): Promise<any> {
     try {
       const res = await this.api.patch('/api/vendors/me/address', payload);
@@ -806,6 +817,9 @@ class ApiService {
           trackingNumber: item.shipmentTrackingNumber,
           carrier: item.shipmentCarrierCode?.trim(),
           price: item.eachPriceOfLineItem,
+          eta: item.estimatedDeliveryDate || item.estimatedDeliveryTimeWindow || item.expectedDeliveryDate
+            || item.promisedDeliveryDate || item.deliveryEta || item.eta || orderDetail?.estimatedDeliveryDate
+            || orderDetail?.eta || null,
         });
       });
     });
