@@ -3,13 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { formatUSDate } from '../utils/date';
 import { ga4TabChanged, ga4PartTracked } from '../utils/ga4DataLayer';
-import { 
-  Loader2, Package, Truck, History, ArrowRight, Box, 
-  Search, X, CheckCircle2, MapPin, Calendar, DollarSign,
-  AlertCircle, ShieldCheck
+import {
+  Loader2, Package, Truck, History, Box,
+  Search, X, CheckCircle2, MapPin, ShieldCheck, Plus
 } from 'lucide-react';
+import OrderPartsModal from '../components/OrderPartsModal';
 
 type Tab = 'active' | 'history';
+type StatusFilter = 'all' | 'incoming' | 'delivered';
 
 interface TrackingEvent {
   status: string;
@@ -20,8 +21,19 @@ interface TrackingEvent {
   active: boolean;
 }
 
+const NAVY = '#1B365D';
+const BLUE = '#2574C2';
+const BLUE_LIGHT = '#E8F1FA';
+const GREEN = '#28A745';
+const GREEN_LIGHT = '#E8F5E9';
+const GREEN_DARK = '#1E7E34';
+const ORANGE = '#ED7D31';
+const ORANGE_LIGHT = '#FFF3E8';
+const PURPLE = '#6F42C1';
+const PURPLE_LIGHT = '#F3EDFF';
+
 const formatSoNumber = (so: any) => {
-  if (!so) return 'SO-13600879';
+  if (!so) return null;
   const str = String(so).trim();
   if (str.toUpperCase().startsWith('SO-')) {
     return str.toUpperCase();
@@ -30,6 +42,28 @@ const formatSoNumber = (so: any) => {
     return `SO-${str}`;
   }
   return str;
+};
+
+const isDeliveredStatus = (status: string) => (status || '').toLowerCase().includes('deliver');
+
+// Maps a raw status string onto how far along the 4-step shipment pipeline a part is:
+// 1 = ordered/processing/draft, 2 = shipped, 3 = in transit, 4 = delivered
+const getTrackProgress = (status: string): number => {
+  const s = (status || '').toLowerCase();
+  if (s.includes('deliver')) return 4;
+  if (s.includes('transit')) return 3;
+  if (s.includes('ship')) return 2;
+  return 1;
+};
+
+const getStatusBadge = (status: string) => {
+  const s = (status || '').toLowerCase();
+  if (s.includes('deliver')) return { label: 'Delivered', bg: GREEN_LIGHT, color: GREEN_DARK, icon: '✅' };
+  if (s.includes('transit')) return { label: 'In Transit', bg: ORANGE_LIGHT, color: ORANGE, icon: '🚚' };
+  if (s.includes('ship')) return { label: 'Shipped', bg: BLUE_LIGHT, color: BLUE, icon: '📦' };
+  if (s.includes('hand')) return { label: 'In Hand', bg: PURPLE_LIGHT, color: PURPLE, icon: '🔧' };
+  if (s.includes('draft')) return { label: 'Draft', bg: '#F1F3F5', color: '#495057', icon: '📝' };
+  return { label: status || 'Ordered', bg: BLUE_LIGHT, color: BLUE, icon: '📦' };
 };
 
 const PartsPage = () => {
@@ -44,7 +78,10 @@ const PartsPage = () => {
   const [activeParts, setActiveParts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+
   // Slide-out tracking drawer state
   const [selectedPart, setSelectedPart] = useState<any | null>(null);
 
@@ -69,35 +106,58 @@ const PartsPage = () => {
       }
     };
     loadParts();
-  }, [activeTab]);
+  }, [activeTab, refreshKey]);
 
   // Handle Tab Switch (update query param)
   const handleTabSwitch = (tab: Tab) => {
     setSearchQuery('');
+    setStatusFilter('all');
     setSelectedPart(null);
     ga4TabChanged(tab, 'parts');
     navigate(`/parts?tab=${tab}`);
   };
 
-  // Filter parts by search query (bypassed to match mobile layout)
+  const incomingCount = useMemo(
+    () => (Array.isArray(parts) ? parts.filter(p => !isDeliveredStatus(p?.status)).length : 0),
+    [parts]
+  );
+  const activeIncomingCount = useMemo(
+    () => (Array.isArray(activeParts) ? activeParts.filter(p => !isDeliveredStatus(p?.status)).length : 0),
+    [activeParts]
+  );
+
+  // Filter parts by search query + status chip
   const filteredParts = useMemo(() => {
     if (!Array.isArray(parts)) return [];
-    return parts;
-  }, [parts]);
+    const q = searchQuery.trim().toLowerCase();
+    return parts.filter((item: any) => {
+      if (statusFilter === 'incoming' && isDeliveredStatus(item?.status)) return false;
+      if (statusFilter === 'delivered' && !isDeliveredStatus(item?.status)) return false;
+      if (!q) return true;
+      const haystack = [item?.partNumber, item?.partNo, item?.itemDescription, item?.description, item?.orderNo, item?.brand]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [parts, searchQuery, statusFilter]);
+
+  const incomingParts = useMemo(() => filteredParts.filter(p => !isDeliveredStatus(p?.status)), [filteredParts]);
+  const deliveredParts = useMemo(() => filteredParts.filter(p => isDeliveredStatus(p?.status)), [filteredParts]);
 
   // Generate dynamic tracking events based on status
   const getTrackingEvents = (part: any): TrackingEvent[] => {
     const status = (part?.status || 'ordered').toLowerCase();
     const dateStr = part?.date || '2026-06-01';
-    
+
     // Parse base date to create believable timestamps
     const baseDate = new Date(dateStr);
-    
+
     const formatTime = (d: Date, hourOffset: number, minOffset: number) => {
       const newD = new Date(d);
       newD.setHours(newD.getHours() + hourOffset);
       newD.setMinutes(newD.getMinutes() + minOffset);
-      return newD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + 
+      return newD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
              newD.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     };
 
@@ -218,206 +278,296 @@ const PartsPage = () => {
     }
   };
 
-  const getStatusStyle = (status: string) => {
-    const s = status.toLowerCase();
-    if (s === 'delivered') {
-      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    } else if (s === 'shipped' || s === 'in transit') {
-      return 'bg-blue-50 text-blue-700 border-blue-200';
-    } else if (s === 'draft' || s === 'processing') {
-      return 'bg-amber-50 text-amber-700 border-amber-200';
-    }
-    return 'bg-gray-100 text-gray-600 border-gray-200';
+  const renderTrackBar = (status: string) => {
+    const progress = getTrackProgress(status);
+    const steps = [1, 2, 3, 4];
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex gap-[2px]">
+          {steps.map(step => (
+            <div
+              key={step}
+              className={`flex-1 h-[3px] rounded-sm ${step === progress && progress < 4 ? 'animate-pulse' : ''}`}
+              style={{
+                background: step < progress ? GREEN : step === progress ? BLUE : '#E9ECEF',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
   };
 
-  return (
-    <div className="flex-grow flex flex-col bg-gray-50 text-gray-900 min-h-screen overflow-y-auto">
-      {/* Cover atmospheric header */}
-      <div className="relative h-44 shrink-0 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1),transparent_60%)]" />
-        <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-gray-50 to-transparent" />
-      </div>
+  const renderPartRow = (item: any, idx: number, variant: 'incoming' | 'delivered') => {
+    const soNumber = formatSoNumber(item.soNumber || item.orderId);
+    const badge = getStatusBadge(item.status || 'ordered');
 
-      <div className="px-6 md:px-12 max-w-6xl w-full mx-auto -mt-20 relative z-10 flex-grow pb-16">
-        {/* Title Block */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-gray-200">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-gray-900">Parts & Inventory</h1>
-              <span className="flex items-center gap-1 px-2.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-[10px] font-extrabold text-blue-600 tracking-wider uppercase">
-                Warehouse Link
-              </span>
-            </div>
-            <p className="text-sm text-gray-500 mt-1.5">
-              Monitor active parts dispatch routing, tracking codes, and order history invoices.
-            </p>
+    return (
+      <div
+        key={item.id || idx}
+        onClick={() => item.trackingNumber && setSelectedPart(item)}
+        className="grid grid-cols-[2fr_1.4fr_1fr_100px] items-center gap-3 px-4 py-3 border-b border-[#F1F3F5] last:border-b-0 hover:bg-[#F8F9FA] transition-colors cursor-pointer"
+      >
+        <div>
+          <div className="text-xs font-bold font-mono" style={{ color: NAVY }}>
+            {item.partNumber || item.partNo}
           </div>
-
-          {/* Quick Counter Summary */}
-          <div className="flex items-center gap-4 bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-            <div className="px-3 border-r border-gray-200 text-center">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Active Orders</p>
-              <p className="text-lg font-bold text-blue-600 mt-0.5">
-                {Array.isArray(activeParts) ? activeParts.filter(p => p.status !== 'Delivered').length : 0}
-              </p>
-            </div>
-            <div className="px-3 text-center">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Total Delivered</p>
-              <p className="text-lg font-bold text-emerald-600 mt-0.5">
-                {Array.isArray(activeParts) ? activeParts.filter(p => p.status === 'Delivered').length : 0}
-              </p>
-            </div>
+          <div className="text-[11px] text-gray-600 mt-0.5 truncate">
+            {item.itemDescription || item.description || item.brand}
           </div>
-        </div>
-
-        {/* Tab Selection Row & Search Box */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
-          <div className="inline-flex bg-white border border-gray-200 p-1 rounded-xl shadow-sm shrink-0 select-none">
-            <button
-              onClick={() => handleTabSwitch('active')}
-              className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                activeTab === 'active'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/10'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <Truck className="h-4 w-4" />
-              <span>Active Orders</span>
-            </button>
-            <button
-              onClick={() => handleTabSwitch('history')}
-              className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                activeTab === 'history'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/10'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <History className="h-4 w-4" />
-              <span>Order History</span>
-            </button>
-          </div>
-
-        </div>
-
-        {/* Content list block */}
-        <div className="mt-8">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white border border-gray-200 rounded-2xl shadow-sm">
-              <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-              <p className="text-sm text-gray-500 mt-4">Retreiving warehouse orders...</p>
-            </div>
-          ) : filteredParts.length === 0 ? (
-            <div className="text-center py-24 bg-white border border-dashed border-gray-200 rounded-2xl p-6 shadow-sm">
-              <div className="h-16 w-16 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center mx-auto mb-4 text-gray-400">
-                <Box className="h-7 w-7" />
-              </div>
-              <h3 className="text-base font-bold text-gray-900">No parts found</h3>
-              <p className="text-xs text-gray-500 mt-1.5 max-w-xs mx-auto leading-relaxed">
-                {searchQuery 
-                  ? 'No parts matched your active search filters. Try clearing the filter.' 
-                  : activeTab === 'active' 
-                    ? 'No orders are currently in transit. Newly placed parts orders will display live tracking events here.' 
-                    : 'Your delivered parts archives are currently empty.'}
-              </p>
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                >
-                  Clear Search Filter
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredParts.map((item: any, idx: number) => {
-                return (
-                  <div 
-                    key={item.id || idx} 
-                    className="bg-white border border-gray-200 p-5 rounded-2xl hover:border-gray-300 hover:shadow-md transition-all flex flex-col justify-between gap-4 group shadow-sm"
-                  >
-                    <div className="flex items-start gap-4">
-                      {/* Part Image/Icon with background */}
-                      <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
-                        <Package className="h-5.5 w-5.5" />
-                      </div>
-                      
-                      <div className="flex-grow min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-bold text-gray-900 text-sm truncate group-hover:text-blue-600 transition-colors">
-                            {item.partNumber || item.partNo || 'WH12X10093'} • {formatSoNumber(item.soNumber || item.orderId)}
-                          </h3>
-                          <span className={`px-2 py-0.5 border rounded text-[9px] font-bold uppercase tracking-wider ${getStatusStyle(item.status || 'ordered')}`}>
-                            {item.status || 'ordered'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">
-                          {item.name || item.brand || 'SWITCH'} - {item.category || 'Laundry Appliances'}
-                        </p>
-                        
-                        <p className="text-[10px] text-gray-400 mt-1 font-semibold uppercase tracking-wider">
-                          {formatUSDate(item.date || '2026-06-01')}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
-                      <div className="space-y-1">
-                        {item.orderNo && (
-                          <p className="font-mono text-gray-500">Order Ref: {item.orderNo}</p>
-                        )}
-                        {item.price && (
-                          <p className="font-semibold text-gray-700">Invoice: ${Number(item.price).toFixed(2)}</p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {item.trackingNumber && (
-                          <button
-                            onClick={() => setSelectedPart(item)}
-                            className="flex items-center gap-1 bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-500 px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
-                          >
-                            <span>Track Order</span>
-                            <ArrowRight className="h-3 w-3" />
-                          </button>
-                        )}
-                        
-                        <button
-                          onClick={() => {
-                            const soNum = item.soNumber || item.orderId || item.assignmentId || '';
-                            const soNormalized = String(soNum).trim().toUpperCase().startsWith('SO-') ? String(soNum).trim() : `SO-${String(soNum).trim()}`;
-                            navigate(`/assignments?view=list&id=${encodeURIComponent(soNormalized)}`);
-                          }}
-                          className="flex items-center gap-1 bg-gray-50 hover:bg-gray-100 text-gray-705 border border-gray-200 px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
-                        >
-                          <span>View Job &gt;</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+          {soNumber && (
+            <div className="text-[9px] font-semibold px-1.5 py-0.5 rounded inline-block mt-1" style={{ background: BLUE_LIGHT, color: BLUE }}>
+              {soNumber}
             </div>
           )}
         </div>
+
+        {variant === 'incoming' ? (
+          <div className="flex flex-col gap-1">
+            {renderTrackBar(item.status)}
+            <div className="text-[10px] text-gray-500">
+              <strong className="text-gray-700">{badge.label}</strong>
+              {item.carrier ? ` · ${item.carrier}` : ''}
+            </div>
+          </div>
+        ) : (
+          <div className="text-[10px] text-gray-500">
+            <strong className="text-gray-700">{formatUSDate(item.date) || '—'}</strong>
+            {item.carrier ? <><br />{item.carrier}</> : null}
+          </div>
+        )}
+
+        <div className="text-[11px]">
+          {variant === 'incoming' ? (
+            <span className="text-gray-500">{formatUSDate(item.eta) || '—'}</span>
+          ) : (
+            <span
+              className="text-[10px] font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1 whitespace-nowrap"
+              style={{ background: badge.bg, color: badge.color }}
+            >
+              <span>{badge.icon}</span> {badge.label}
+            </span>
+          )}
+        </div>
+
+        <div className="flex justify-end">
+          {item.trackingNumber ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); ga4PartTracked(item.orderId || item.orderNo || '', item.trackingNumber); setSelectedPart(item); }}
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-md whitespace-nowrap transition-colors"
+              style={{ background: BLUE_LIGHT, color: BLUE }}
+            >
+              Track →
+            </button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); setSelectedPart(item); }}
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-[#F1F3F5] text-gray-600 whitespace-nowrap"
+            >
+              View
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex-grow flex flex-col bg-white text-gray-900 h-full overflow-hidden">
+      {/* Flat top bar */}
+      <div className="flex items-center justify-between px-6 py-3.5 border-b border-[#E9ECEF] shrink-0">
+        <h1 className="text-base font-bold" style={{ color: NAVY }}>
+          Parts &amp; Inventory — {activeTab === 'active' ? 'Active Orders' : 'Order History'}
+        </h1>
+        <button
+          onClick={() => setShowOrderModal(true)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors cursor-pointer"
+          style={{ background: BLUE }}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Order Parts for Truck
+        </button>
+      </div>
+
+      <div className="flex-grow overflow-y-auto px-6 py-5">
+        {/* Category tabs */}
+        <div className="flex gap-0 bg-[#E9ECEF] rounded-lg p-[3px] mb-5 w-fit">
+          <button
+            onClick={() => handleTabSwitch('active')}
+            className="px-5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            style={activeTab === 'active'
+              ? { background: 'white', color: NAVY, boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }
+              : { color: '#6C757D' }}
+          >
+            <Truck className="h-3.5 w-3.5" />
+            Active Orders
+            {activeIncomingCount > 0 && (
+              <span
+                className="text-[10px] font-bold px-1.5 rounded-full leading-[1.5]"
+                style={activeTab === 'active' ? { background: NAVY, color: 'white' } : { background: '#DEE2E6', color: '#495057' }}
+              >
+                {activeIncomingCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => handleTabSwitch('history')}
+            className="px-5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            style={activeTab === 'history'
+              ? { background: 'white', color: NAVY, boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }
+              : { color: '#6C757D' }}
+          >
+            <History className="h-3.5 w-3.5" />
+            Order History
+          </button>
+        </div>
+
+        {/* Filter row */}
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className="px-3.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 border transition-all cursor-pointer"
+            style={statusFilter === 'all'
+              ? { background: NAVY, color: 'white', borderColor: NAVY }
+              : { background: 'white', color: '#495057', borderColor: '#DEE2E6' }}
+          >
+            <span className="w-[7px] h-[7px] rounded-full" style={{ background: statusFilter === 'all' ? 'white' : NAVY }} />
+            All
+          </button>
+          <button
+            onClick={() => setStatusFilter('incoming')}
+            className="px-3.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 border transition-all cursor-pointer"
+            style={statusFilter === 'incoming'
+              ? { background: NAVY, color: 'white', borderColor: NAVY }
+              : { background: 'white', color: '#495057', borderColor: '#DEE2E6' }}
+          >
+            <span className="w-[7px] h-[7px] rounded-full" style={{ background: ORANGE }} />
+            Incoming
+            {incomingCount > 0 && (
+              <span className="text-[9px] font-bold px-1.5 rounded-full" style={{ background: ORANGE, color: 'white' }}>
+                {incomingCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setStatusFilter('delivered')}
+            className="px-3.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 border transition-all cursor-pointer"
+            style={statusFilter === 'delivered'
+              ? { background: NAVY, color: 'white', borderColor: NAVY }
+              : { background: 'white', color: '#495057', borderColor: '#DEE2E6' }}
+          >
+            <span className="w-[7px] h-[7px] rounded-full" style={{ background: GREEN }} />
+            Delivered
+          </button>
+
+          <div className="relative ml-auto">
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search part # or name…"
+              className="pl-8 pr-3 py-1.5 text-xs border border-[#DEE2E6] rounded-md outline-none w-[200px] focus:border-[#2574C2]"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <Loader2 className="h-10 w-10 animate-spin" style={{ color: BLUE }} />
+            <p className="text-sm text-gray-500 mt-4">Retrieving warehouse orders...</p>
+          </div>
+        ) : filteredParts.length === 0 ? (
+          <div className="text-center py-24 bg-white border border-dashed border-gray-200 rounded-2xl p-6">
+            <div className="h-16 w-16 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center mx-auto mb-4 text-gray-400">
+              <Box className="h-7 w-7" />
+            </div>
+            <h3 className="text-base font-bold text-gray-900">No parts found</h3>
+            <p className="text-xs text-gray-500 mt-1.5 max-w-xs mx-auto leading-relaxed">
+              {searchQuery
+                ? 'No parts matched your active search filters. Try clearing the filter.'
+                : activeTab === 'active'
+                  ? 'No orders are currently in transit. Newly placed parts orders will display live tracking events here.'
+                  : 'Your delivered parts archives are currently empty.'}
+            </p>
+            {(searchQuery || statusFilter !== 'all') && (
+              <button
+                onClick={() => { setSearchQuery(''); setStatusFilter('all'); }}
+                className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            {incomingParts.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2 pb-2 border-b border-[#E9ECEF]">
+                  <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                    Incoming · {incomingParts.length} part{incomingParts.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="bg-white border border-[#E9ECEF] rounded-[10px] overflow-hidden">
+                  <div className="grid grid-cols-[2fr_1.4fr_1fr_100px] gap-3 px-4 py-2.5 bg-[#F8F9FA] border-b border-[#E9ECEF] text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                    <div>Part</div>
+                    <div>Tracking</div>
+                    <div>ETA</div>
+                    <div></div>
+                  </div>
+                  {incomingParts.map((item, idx) => renderPartRow(item, idx, 'incoming'))}
+                </div>
+              </div>
+            )}
+
+            {deliveredParts.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2 pb-2 border-b border-[#E9ECEF]">
+                  <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                    Delivered · {deliveredParts.length} part{deliveredParts.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="bg-white border border-[#E9ECEF] rounded-[10px] overflow-hidden">
+                  <div className="grid grid-cols-[2fr_1.4fr_1fr_100px] gap-3 px-4 py-2.5 bg-[#F8F9FA] border-b border-[#E9ECEF] text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                    <div>Part</div>
+                    <div>Delivered</div>
+                    <div>Status</div>
+                    <div></div>
+                  </div>
+                  {deliveredParts.map((item, idx) => renderPartRow(item, idx, 'delivered'))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* TRACKING TIMELINE DRAWER OVERLAY */}
       {selectedPart && (
         <div className="fixed inset-0 z-50 flex justify-end">
           {/* Backdrop blur clickoff */}
-          <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setSelectedPart(null)}
           />
-          
+
           {/* Drawer container */}
           <div className="relative w-full max-w-md bg-white border-l border-gray-200 shadow-2xl p-6 text-gray-700 flex flex-col h-full overflow-y-auto animate-slide-in">
             {/* Drawer Header */}
             <div className="flex items-center justify-between border-b border-gray-200 pb-4 shrink-0">
               <div className="flex items-center gap-2">
-                <Truck className="h-5 w-5 text-blue-600" />
-                <h3 className="font-bold text-gray-900 text-base">FedEx Delivery Tracking</h3>
+                <Truck className="h-5 w-5" style={{ color: BLUE }} />
+                <h3 className="font-bold text-gray-900 text-base">
+                  {selectedPart.carrier || 'Delivery'} Tracking
+                </h3>
               </div>
               <button
                 onClick={() => setSelectedPart(null)}
@@ -430,7 +580,7 @@ const PartsPage = () => {
             {/* Part summary block */}
             <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl mt-4 space-y-3 shrink-0">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
+                <div className="w-10 h-10 rounded-lg border flex items-center justify-center shrink-0" style={{ background: BLUE_LIGHT, borderColor: '#C5DCEF', color: BLUE }}>
                   <Package className="h-5 w-5" />
                 </div>
                 <div>
@@ -441,29 +591,37 @@ const PartsPage = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200 text-xs">
-                <div>
-                  <span className="text-gray-400 block">Carrier</span>
-                  <span className="font-semibold text-gray-700">{selectedPart.carrier || 'FedEx'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block">Tracking Number</span>
-                  <span className="font-semibold text-blue-600 font-mono select-all">{selectedPart.trackingNumber}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block">Order Ref</span>
-                  <span className="font-semibold text-gray-700 font-mono">{selectedPart.orderNo}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block">Invoice Value</span>
-                  <span className="font-semibold text-gray-700">${Number(selectedPart.price || 0).toFixed(2)}</span>
-                </div>
+                {selectedPart.carrier && (
+                  <div>
+                    <span className="text-gray-400 block">Carrier</span>
+                    <span className="font-semibold text-gray-700">{selectedPart.carrier}</span>
+                  </div>
+                )}
+                {selectedPart.trackingNumber && (
+                  <div>
+                    <span className="text-gray-400 block">Tracking Number</span>
+                    <span className="font-semibold font-mono select-all" style={{ color: BLUE }}>{selectedPart.trackingNumber}</span>
+                  </div>
+                )}
+                {selectedPart.orderNo && (
+                  <div>
+                    <span className="text-gray-400 block">Order Ref</span>
+                    <span className="font-semibold text-gray-700 font-mono">{selectedPart.orderNo}</span>
+                  </div>
+                )}
+                {selectedPart.price != null && (
+                  <div>
+                    <span className="text-gray-400 block">Invoice Value</span>
+                    <span className="font-semibold text-gray-700">${Number(selectedPart.price || 0).toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Vertical timeline */}
             <div className="mt-8 flex-grow">
               <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-5 flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <CheckCircle2 className="h-4 w-4" style={{ color: GREEN }} />
                 <span>Delivery Shipment Progress</span>
               </h4>
 
@@ -472,14 +630,17 @@ const PartsPage = () => {
                   return (
                     <div key={idx} className="relative pl-6">
                       {/* Timeline Dot Indicator */}
-                      <div 
+                      <div
                         className={`absolute -left-[30px] top-0.5 w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center ${
-                          event.completed 
+                          event.completed
                             ? event.active
-                              ? 'bg-blue-500 border-blue-400 ring-4 ring-blue-500/20 scale-110'
-                              : 'bg-emerald-500 border-emerald-400'
+                              ? 'ring-4 scale-110'
+                              : ''
                             : 'bg-gray-100 border-gray-300'
                         }`}
+                        style={event.completed ? (event.active
+                          ? { background: BLUE, borderColor: '#60A5FA', boxShadow: `0 0 0 4px ${BLUE}33` }
+                          : { background: GREEN, borderColor: '#4ADE80' }) : undefined}
                       >
                         {event.completed && !event.active && (
                           <div className="w-1.5 h-1.5 bg-white rounded-full" />
@@ -492,11 +653,10 @@ const PartsPage = () => {
                       {/* Event Details */}
                       <div className="space-y-0.5">
                         <div className="flex items-center justify-between gap-2">
-                          <p className={`text-xs font-bold ${
-                            event.completed 
-                              ? event.active ? 'text-blue-600' : 'text-gray-900' 
-                              : 'text-gray-400'
-                          }`}>
+                          <p
+                            className="text-xs font-bold"
+                            style={{ color: event.completed ? (event.active ? BLUE : '#111827') : '#9CA3AF' }}
+                          >
                             {event.status}
                           </p>
                           <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{event.time}</span>
@@ -517,8 +677,8 @@ const PartsPage = () => {
 
             {/* Bottom Help block */}
             <div className="pt-6 border-t border-gray-200 mt-6 shrink-0">
-              <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex items-start gap-2.5 text-xs text-gray-600 leading-relaxed">
-                <ShieldCheck className="h-4.5 w-4.5 text-blue-600 shrink-0 mt-0.5" />
+              <div className="p-3 rounded-lg flex items-start gap-2.5 text-xs text-gray-600 leading-relaxed" style={{ background: BLUE_LIGHT, border: `1px solid #C5DCEF` }}>
+                <ShieldCheck className="h-4.5 w-4.5 shrink-0 mt-0.5" style={{ color: BLUE }} />
                 <div>
                   <span className="font-semibold text-gray-900">Need support?</span> Direct delivery modifications require dispatcher authentication. Connect to Kris Chat AI to query transit overrides.
                 </div>
@@ -526,6 +686,13 @@ const PartsPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showOrderModal && (
+        <OrderPartsModal
+          onClose={() => setShowOrderModal(false)}
+          onOrdered={() => setRefreshKey(k => k + 1)}
+        />
       )}
     </div>
   );

@@ -817,6 +817,9 @@ class ApiService {
           trackingNumber: item.shipmentTrackingNumber,
           carrier: item.shipmentCarrierCode?.trim(),
           price: item.eachPriceOfLineItem,
+          eta: item.estimatedDeliveryDate || item.estimatedDeliveryTimeWindow || item.expectedDeliveryDate
+            || item.promisedDeliveryDate || item.deliveryEta || item.eta || orderDetail?.estimatedDeliveryDate
+            || orderDetail?.eta || null,
         });
       });
     });
