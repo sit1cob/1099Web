@@ -4,7 +4,7 @@ import { trackPartsOrdered } from '../utils/clarityTracking';
 import { ga4PartsOrdered } from '../utils/ga4DataLayer';
 import {
   Wrench, Search, ChevronLeft, Package, ClipboardList,
-  Trash2, Loader2, AlertCircle
+  Loader2, AlertCircle
 } from 'lucide-react';
 
 type CatalogTab = 'model' | 'number';
@@ -141,7 +141,33 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
   };
 
   const handleRemoveFromCart = (cartKey: string) => {
-    setCart(prev => prev.filter(i => (i.itemId || i.partNo) !== cartKey));
+    setCart(prev => {
+      const removed = prev.find(i => (i.itemId || i.partNo) === cartKey);
+      const next = prev.filter(i => (i.itemId || i.partNo) !== cartKey);
+
+      if (next.length === 0) {
+        // Cart emptied out entirely — dismiss the availability results/error
+        // and go back to the initial "Check Parts Availability" state.
+        setAvailabilityChecked(false);
+        setPartsAvailability({});
+        setPartsError(null);
+      } else if (removed) {
+        // Mirror the app: drop the removed part from the availability results
+        // and re-evaluate the error against what's left, rather than forcing
+        // a full re-check.
+        setPartsAvailability(prevAvail => {
+          const nextAvail = { ...prevAvail };
+          delete nextAvail[removed.partNo];
+          const stillBlocked = next.some(item => item.partNo in nextAvail && !nextAvail[item.partNo]);
+          setPartsError(stillBlocked
+            ? "Order unavailable — one or more parts in your cart aren't ready to order. All parts must be available before you can place an order. Please remove the unavailable part(s) or check back later, then try again."
+            : null);
+          return nextAvail;
+        });
+      }
+
+      return next;
+    });
   };
 
   const handleCheckAvailability = async () => {
@@ -164,7 +190,7 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
       const unavailableCount = cart.filter(item => !availMap[item.partNo]).length;
       setAvailabilityChecked(true);
       setPartsError(unavailableCount > 0
-        ? 'One or more parts in your cart are currently unavailable. Remove them or check back later, then try again.'
+        ? "Order unavailable — one or more parts in your cart aren't ready to order. All parts must be available before you can place an order. Please remove the unavailable part(s) or check back later, then try again."
         : null);
     } catch (e) {
       console.error('Availability check failed:', e);
@@ -387,7 +413,7 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
                   return (
                     <div
                       key={item.itemId || item.partNo}
-                      className={`p-3 rounded-xl flex flex-col gap-2 relative border ${
+                      className={`p-3 rounded-xl flex flex-col gap-2 border ${
                         isChecked && !isAvailable
                           ? 'bg-rose-50 border-rose-300'
                           : isChecked && isAvailable
@@ -395,12 +421,6 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
                             : 'bg-white border-gray-200'
                       }`}
                     >
-                      <button
-                        onClick={() => handleRemoveFromCart(item.itemId || item.partNo)}
-                        className="absolute right-2 top-2 text-gray-400 hover:text-rose-500 cursor-pointer"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
                       <div className="flex items-center gap-2.5">
                         {item.imageUrl ? (
                           <img src={item.imageUrl} alt={item.name} className="w-9 h-9 object-contain rounded border border-gray-100 shrink-0 bg-white" />
@@ -410,7 +430,7 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
                           </div>
                         )}
                         <div>
-                          <p className="text-[11px] font-bold text-gray-900 truncate pr-5">{item.name}</p>
+                          <p className="text-[11px] font-bold text-gray-900 truncate">{item.name}</p>
                           <p className="text-[9px] text-gray-400 font-mono mt-0.5">Part #{item.partNo}</p>
                         </div>
                       </div>
@@ -430,9 +450,16 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
                           )}
                         </div>
                       )}
-                      {(!isChecked || isAvailable) && (
-                        <div className="flex items-center justify-end mt-1">
-                          <div className="flex items-center border border-gray-200 rounded bg-white overflow-hidden">
+                      {isChecked && !isAvailable ? (
+                        <button
+                          onClick={() => handleRemoveFromCart(item.itemId || item.partNo)}
+                          className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <div className="flex items-center border border-gray-200 rounded bg-white overflow-hidden shrink-0">
                             <button
                               onClick={() => handleUpdateCartQty(item.itemId || item.partNo, -1)}
                               className="px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-bold cursor-pointer"
@@ -447,6 +474,12 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
                               +
                             </button>
                           </div>
+                          <button
+                            onClick={() => handleRemoveFromCart(item.itemId || item.partNo)}
+                            className="flex-grow py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                          >
+                            Remove
+                          </button>
                         </div>
                       )}
                     </div>
@@ -457,8 +490,8 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
 
             <div className="p-4 border-t border-gray-200 bg-white shrink-0 space-y-3">
               {partsError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2 text-[10px] leading-relaxed text-rose-600">
-                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="p-3 rounded-xl flex items-start gap-2 text-[10px] leading-relaxed" style={{ background: '#FEF3C7', color: '#92400E' }}>
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" style={{ color: '#D97706' }} />
                   <span>{partsError}</span>
                 </div>
               )}
@@ -469,21 +502,22 @@ const OrderPartsModal = ({ onClose, onOrdered }: OrderPartsModalProps) => {
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <button
-                  onClick={handleCheckAvailability}
-                  disabled={cart.length === 0 || checkingAvailability}
-                  className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 text-[10px] font-extrabold text-gray-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50 w-full"
-                >
-                  {checkingAvailability ? 'Checking...' : 'Check Parts Availability'}
-                </button>
-                {availabilityChecked && !partsError && cart.length > 0 && (
+                {availabilityChecked ? (
                   <button
                     onClick={handleSubmitOrder}
-                    disabled={submitting}
-                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    disabled={!!partsError || submitting}
+                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-extrabold rounded-lg transition-colors cursor-pointer w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    {submitting ? 'Placing Order...' : 'Place Order'}
+                    {submitting ? 'Placing Order...' : 'Proceed to Checkout'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleCheckAvailability}
+                    disabled={cart.length === 0 || checkingAvailability}
+                    className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 text-[10px] font-extrabold text-gray-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50 w-full"
+                  >
+                    {checkingAvailability ? 'Checking...' : 'Check Parts Availability'}
                   </button>
                 )}
               </div>

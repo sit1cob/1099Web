@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ApiService from '../api/apiService';
 import { formatUSDate } from '../utils/date';
@@ -45,6 +45,20 @@ const formatSoNumber = (so: any) => {
 };
 
 const isDeliveredStatus = (status: string) => (status || '').toLowerCase().includes('deliver');
+
+// Order History items come from /parts/history, which reports the job/assignment's
+// own workflow status (assignmentStatus: assigned, waiting_on_parts, part_arrived,
+// completed) + tech-reported disposition — a different domain than shipment status.
+// This is ONLY used to sort items into the Incoming/Delivered tabs we added for
+// navigation; the badge text itself always shows the raw assignmentStatus value
+// as returned by the API (same as the app's History list), never a renamed label.
+const isHistoryResolved = (item: any) => {
+  const status = (item?.assignmentStatus || '').toLowerCase();
+  if (item?.disposition === 'returned') return true;
+  if (status.includes('completed')) return true;
+  if (status.includes('part_arrived') || status.includes('arrived')) return true;
+  return false;
+};
 
 // Maps a raw status string onto how far along the 4-step shipment pipeline a part is:
 // 1 = ordered/processing/draft, 2 = shipped, 3 = in transit, 4 = delivered
@@ -117,9 +131,22 @@ const PartsPage = () => {
     navigate(`/parts?tab=${tab}`);
   };
 
+  // History items have no tracking number — route to the underlying job instead.
+  const handleViewJob = (item: any) => {
+    const soRaw = item.soNumber || item.assignmentId || item.orderId || '';
+    const soNormalized = formatSoNumber(soRaw) || String(soRaw);
+    navigate(`/assignments?view=list&id=${encodeURIComponent(soNormalized)}`);
+  };
+
+  const isHistory = activeTab === 'history';
+  const isResolved = useCallback(
+    (item: any) => (isHistory ? isHistoryResolved(item) : isDeliveredStatus(item?.status)),
+    [isHistory]
+  );
+
   const incomingCount = useMemo(
-    () => (Array.isArray(parts) ? parts.filter(p => !isDeliveredStatus(p?.status)).length : 0),
-    [parts]
+    () => (Array.isArray(parts) ? parts.filter(p => !isResolved(p)).length : 0),
+    [parts, isResolved]
   );
   const activeIncomingCount = useMemo(
     () => (Array.isArray(activeParts) ? activeParts.filter(p => !isDeliveredStatus(p?.status)).length : 0),
@@ -131,19 +158,22 @@ const PartsPage = () => {
     if (!Array.isArray(parts)) return [];
     const q = searchQuery.trim().toLowerCase();
     return parts.filter((item: any) => {
-      if (statusFilter === 'incoming' && isDeliveredStatus(item?.status)) return false;
-      if (statusFilter === 'delivered' && !isDeliveredStatus(item?.status)) return false;
+      if (statusFilter === 'incoming' && isResolved(item)) return false;
+      if (statusFilter === 'delivered' && !isResolved(item)) return false;
       if (!q) return true;
-      const haystack = [item?.partNumber, item?.partNo, item?.itemDescription, item?.description, item?.orderNo, item?.brand]
+      const haystack = [
+        item?.partNumber, item?.partNo, item?.itemDescription, item?.description,
+        item?.orderNo, item?.brand, item?.soNumber, item?.applianceType,
+      ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [parts, searchQuery, statusFilter]);
+  }, [parts, searchQuery, statusFilter, isResolved]);
 
-  const incomingParts = useMemo(() => filteredParts.filter(p => !isDeliveredStatus(p?.status)), [filteredParts]);
-  const deliveredParts = useMemo(() => filteredParts.filter(p => isDeliveredStatus(p?.status)), [filteredParts]);
+  const incomingParts = useMemo(() => filteredParts.filter(p => !isResolved(p)), [filteredParts, isResolved]);
+  const deliveredParts = useMemo(() => filteredParts.filter(p => isResolved(p)), [filteredParts, isResolved]);
 
   // Generate dynamic tracking events based on status
   const getTrackingEvents = (part: any): TrackingEvent[] => {
@@ -298,7 +328,8 @@ const PartsPage = () => {
     );
   };
 
-  const renderPartRow = (item: any, idx: number, variant: 'incoming' | 'delivered') => {
+  // Active tab rows — shipment-tracking domain (tracking bar, carrier, ETA)
+  const renderTrackingRow = (item: any, idx: number, variant: 'incoming' | 'delivered') => {
     const soNumber = formatSoNumber(item.soNumber || item.orderId);
     const badge = getStatusBadge(item.status || 'ordered');
 
@@ -367,6 +398,63 @@ const PartsPage = () => {
               View
             </button>
           )}
+        </div>
+      </div>
+    );
+  };
+
+  // History tab rows — job/assignment-workflow domain (no tracking data exists here).
+  // Status text is the raw assignmentStatus value from the API, unmodified — same
+  // as the app's own History list (it renders {item.assignmentStatus} verbatim).
+  const renderHistoryRow = (item: any, idx: number) => {
+    const soNumber = formatSoNumber(item.soNumber);
+
+    return (
+      <div
+        key={item.id || idx}
+        className="grid grid-cols-[2fr_1.4fr_1fr_100px] items-center gap-3 px-4 py-3 border-b border-[#F1F3F5] last:border-b-0 hover:bg-[#F8F9FA] transition-colors"
+      >
+        <div>
+          <div className="text-xs font-bold font-mono" style={{ color: NAVY }}>
+            {item.partNumber}
+          </div>
+          <div className="text-[11px] text-gray-600 mt-0.5 truncate">
+            {item.itemDescription}
+          </div>
+          {soNumber && (
+            <div className="text-[9px] font-semibold px-1.5 py-0.5 rounded inline-block mt-1" style={{ background: BLUE_LIGHT, color: BLUE }}>
+              {soNumber}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {item.applianceType && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[#F1F3F5] text-gray-600">{item.applianceType}</span>
+          )}
+          {item.quantity != null && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[#F1F3F5] text-gray-600">Qty: {item.quantity}</span>
+          )}
+          {item.brand && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[#F1F3F5] text-gray-600">{item.brand}</span>
+          )}
+          {item.assignmentStatus && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ background: GREEN_LIGHT, color: GREEN_DARK }}>
+              {item.assignmentStatus}
+            </span>
+          )}
+        </div>
+
+        <div className="text-[11px] text-gray-500">{formatUSDate(item.date) || '—'}</div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={() => handleViewJob(item)}
+            className="text-[11px] font-semibold px-3 py-1.5 rounded-md whitespace-nowrap transition-colors"
+            style={{ background: BLUE_LIGHT, color: BLUE }}
+          >
+            View Job →
+          </button>
         </div>
       </div>
     );
@@ -519,11 +607,13 @@ const PartsPage = () => {
                 <div className="bg-white border border-[#E9ECEF] rounded-[10px] overflow-hidden">
                   <div className="grid grid-cols-[2fr_1.4fr_1fr_100px] gap-3 px-4 py-2.5 bg-[#F8F9FA] border-b border-[#E9ECEF] text-[10px] font-bold text-gray-400 uppercase tracking-wide">
                     <div>Part</div>
-                    <div>Tracking</div>
-                    <div>ETA</div>
+                    <div>{isHistory ? 'Details' : 'Tracking'}</div>
+                    <div>{isHistory ? 'Date' : 'ETA'}</div>
                     <div></div>
                   </div>
-                  {incomingParts.map((item, idx) => renderPartRow(item, idx, 'incoming'))}
+                  {incomingParts.map((item, idx) => (
+                    isHistory ? renderHistoryRow(item, idx) : renderTrackingRow(item, idx, 'incoming')
+                  ))}
                 </div>
               </div>
             )}
@@ -538,11 +628,13 @@ const PartsPage = () => {
                 <div className="bg-white border border-[#E9ECEF] rounded-[10px] overflow-hidden">
                   <div className="grid grid-cols-[2fr_1.4fr_1fr_100px] gap-3 px-4 py-2.5 bg-[#F8F9FA] border-b border-[#E9ECEF] text-[10px] font-bold text-gray-400 uppercase tracking-wide">
                     <div>Part</div>
-                    <div>Delivered</div>
-                    <div>Status</div>
+                    <div>{isHistory ? 'Details' : 'Delivered'}</div>
+                    <div>{isHistory ? 'Date' : 'Status'}</div>
                     <div></div>
                   </div>
-                  {deliveredParts.map((item, idx) => renderPartRow(item, idx, 'delivered'))}
+                  {deliveredParts.map((item, idx) => (
+                    isHistory ? renderHistoryRow(item, idx) : renderTrackingRow(item, idx, 'delivered')
+                  ))}
                 </div>
               </div>
             )}

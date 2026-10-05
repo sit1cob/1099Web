@@ -831,6 +831,43 @@ class ApiService {
     return [];
   }
 
+  // /api/assignments/parts/history returns a job/assignment-workflow status
+  // (assignmentStatus: assigned, waiting_on_parts, part_arrived, completed) +
+  // tech-reported disposition (installed/missing/damaged/returned) per part —
+  // a completely different shape/domain than the shipment-tracking response
+  // parsed by parsePartsResponse. Map it on its own terms instead of reusing
+  // that parser (which was silently falling through to raw, unmapped items).
+  private parsePartsHistoryResponse(payload: any): any[] {
+    if (!payload) return [];
+    const data = payload.data || payload || {};
+    const rawParts: any[] = Array.isArray(data.parts)
+      ? data.parts
+      : Array.isArray(payload.parts)
+        ? payload.parts
+        : Array.isArray(payload)
+          ? payload
+          : [];
+
+    return rawParts.map((item: any) => ({
+      id: item.id,
+      assignmentId: item.assignmentId,
+      orderId: item.orderId,
+      partNumber: item.partNumber || item.partNo,
+      subPartNumber: item.subPartNumber || null,
+      itemDescription: item.itemDescription,
+      imageUrl: item.itemImageUrl,
+      quantity: item.quantity,
+      price: item.sellPrice,
+      partType: item.partType,
+      soNumber: item.soNumber,
+      assignmentStatus: item.assignmentStatus,
+      applianceType: item.applianceType,
+      brand: item.brand,
+      date: item.createdAt,
+      disposition: item.disposition || null,
+    }));
+  }
+
   async getPartsTracking(): Promise<any> {
     try {
       const token = this.getToken();
@@ -856,7 +893,7 @@ class ApiService {
       });
       return {
         success: true,
-        data: this.parsePartsResponse(response.data)
+        data: this.parsePartsHistoryResponse(response.data)
       };
     } catch (error: any) {
       console.error('getPartsHistory failed:', error?.response?.status, error?.message);
