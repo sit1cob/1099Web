@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../api/apiService';
 import { APP_CONFIG } from '../utils/config';
@@ -44,17 +45,27 @@ const AccountPage = () => {
   });
   const [savingAddress, setSavingAddress] = useState(false);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Parse URL queries on mount/location change
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get('tab');
+    const tabParam = searchParams.get('tab');
     if (tabParam === 'performance' || tabParam === 'reviews' || tabParam === 'profile') {
       setActiveTab(tabParam as any);
     }
-    if (params.get('feedback') === 'open') {
+    if (searchParams.get('feedback') === 'open') {
       openFeedbackModal();
     }
-  }, [window.location.search]);
+  }, [searchParams]);
+
+  const closeFeedbackModal = () => {
+    setShowFeedbackModal(false);
+    if (searchParams.get('feedback') === 'open') {
+      const next = new URLSearchParams(searchParams);
+      next.delete('feedback');
+      setSearchParams(next, { replace: true });
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -155,7 +166,7 @@ const AccountPage = () => {
       const res = await ApiService.submitFeedback({
         metadata: {
           appVersion: APP_CONFIG.VERSION,
-          deviceModel: navigator.userAgent.slice(0, 50),
+          deviceModel: 'web',
           osVersion: navigator.platform,
           timestamp: new Date().toISOString(),
         },
@@ -165,7 +176,7 @@ const AccountPage = () => {
         trackFeedbackSubmitted();
         ga4FeedbackSubmitted(Object.keys(feedbackAnswers).length, answers);
         alert('Thank you for your feedback!');
-        setShowFeedbackModal(false);
+        closeFeedbackModal();
       } else {
         alert(res.message || 'Failed to submit feedback');
       }
@@ -435,7 +446,7 @@ const AccountPage = () => {
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-700 to-indigo-700 p-6 text-center relative shrink-0">
               <button
-                onClick={() => setShowFeedbackModal(false)}
+                onClick={closeFeedbackModal}
                 className="absolute right-4 top-4 text-white/60 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="h-5 w-5" />
@@ -497,7 +508,7 @@ const AccountPage = () => {
             <div className="border-t border-gray-200 p-4 flex items-center gap-3 shrink-0 bg-gray-50">
               <button
                 type="button"
-                onClick={() => setShowFeedbackModal(false)}
+                onClick={closeFeedbackModal}
                 disabled={feedbackSubmitting}
                 className="flex-1 py-3 px-4 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-bold rounded-xl text-sm transition-colors cursor-pointer"
               >
