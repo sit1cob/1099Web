@@ -1924,17 +1924,6 @@ const AssignmentsPage = () => {
                     )}
                   </div>
 
-                  {/* Service History Card */}
-                  <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-4 lg:p-6 space-y-4 lg:space-y-6">
-                    <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-3 bg-teal-500 rounded-full" />
-                        <h4 className="font-extrabold text-[10px] text-teal-400 tracking-[0.2em] uppercase">Service History</h4>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-500 italic">No service history available</p>
-                  </div>
-
                   {/* SHS Service Guidelines - only for sears jobs */}
                   {activeJobDetails._type === 'sears' && (
                   <div className="bg-white border border-gray-200/80 shadow-sm rounded-2xl p-4 lg:p-6 space-y-4">
