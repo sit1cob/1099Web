@@ -1365,16 +1365,6 @@ const AssignmentsPage = () => {
                 })}
               </div>
 
-              {/* Route Sequence Suggestion optimization Banner */}
-              <div className="p-3 border-b border-blue-100 bg-blue-50 flex items-start gap-2.5 shrink-0 select-none">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
-                  <Sparkles className="h-4.5 w-4.5 animate-pulse" />
-                </div>
-                <div className="text-[11px] leading-relaxed text-blue-700">
-                  <span className="font-extrabold text-blue-800">Kris Route Intelligence:</span> Suggested sequence optimizes drive time. Map Joe Matteo <span className="font-mono">SO-13694840</span> first, then Joe Matteo <span className="font-mono">SO-13694841</span> to save 12 mins.
-                </div>
-              </div>
-
               {/* Scrollable list items */}
               <div className="flex-grow overflow-y-auto p-4 space-y-2.5">
                 {filtered.length === 0 ? (
